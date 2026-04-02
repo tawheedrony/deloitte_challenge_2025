@@ -164,4 +164,4 @@ cython_debug/
 *.png
 !app/headline.png
 
-data
+# data

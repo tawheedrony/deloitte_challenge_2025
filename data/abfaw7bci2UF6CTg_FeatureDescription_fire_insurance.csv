@@ -1,0 +1,114 @@
+Parit 1: Wildfire Risk,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Feature Name,Scale / Values for selective features,Description,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Year,,The year in which the risk is calculated.,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+ZIP,,Five-digit postal code used by the USPS to identify specific geographic delivery areas in the United States.,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Category,"CO, DO, DT, HO, MH, RT, NA. CO
+","One-hot encoded features are also provided (if NA, it will show as NA.).
+CO Commercial Occupancy / Commercial Owner (often Commercial Property);
+DO Dwelling Owner (sometimes Dwelling Only); 
+DT Dwelling Tenant (Tenant-Occupied Dwelling);
+HO Homeowner (Homeowners Insurance);
+MH Mobile Home; 
+RT Residential Tenant (Renter’s Insurance)",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Avg Fire Risk Score,Higher score mean higher risk,"A numerical value or rating that represents the likelihood of a property experiencing a fire loss. Insurers use this score to assess risk, determine premiums, and make underwriting decisions.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Avg PPC ,PPC ratings range from 1 (best protection) to 10 (worst protection).,Public Protection Classification. The Public Protection Classification is a rating system developed by the Insurance Services Office (ISO) in the United States. It measures the effectiveness of local fire departments and their ability to protect the community.,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"CAT
+Cov A Fire - 
+Incurred Losses",,"CAT (Catastrophe) in Insurance: 
+Coverage A (Cov A) in insurance—most commonly referenced in homeowners insurance policies—refers to ""Dwelling Coverage."" This is the portion of your insurance policy that covers the physical structure of your home against covered perils (such as fire, windstorm, hail, lightning, etc.).",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"CAT
+Cov A Fire - 
+Number of Claims",,"Cov A Fire - Number of Claims
+Number of catastrophe-related fire claims affecting the dwelling structure (Coverage A).",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"CAT
+Cov A Smoke - 
+Incurred Losses",,"Cov A Smoke - Incurred Losses
+Total catastrophe-related smoke damage losses incurred for the dwelling structure (Coverage A).",,,,,,,,,,,,CAT,Cov,A,Fire,-,Incurred,Losses,0,CAT,Cov,A,Fire,-,Number,of,Claims,0,CAT,Cov,A,Smoke,-,Incurred,Losses,0,CAT,Cov,A,Smoke,-,Number,of,Claims,0,CAT,Cov,C,Fire,-,Incurred,Losses,0,CAT,Cov,C,Fire,-,Number,of,Claims,0,CAT,Cov,C,Smoke,-,Incurred,Losses,0,CAT,Cov,C,Smoke,-,Number,of,Claims,0,Cov,A,Amount,Weighted,Avg,0,Cov,C,Amount,Weighted,Avg,0,Earned,Exposure,0,Earned,Premium,0,Non-CAT,Cov,A,Fire,-,Incurred,Losses,0,Non-CAT,Cov,A,Fire,-,Number,of,Claims,0,Non-CAT,Cov,A,Smoke,-,Incurred,Losses,0,Non-CAT,Cov,A,Smoke,-,Number,of,Claims,0,Non-CAT,Cov,C,Fire,-,Incurred,Losses,0,Non-CAT,Cov,C,Fire,-,Number,of,Claims,0,Non-CAT,Cov,C,Smoke,-,Incurred,Losses,0,Non-CAT,Cov,C,Smoke,-,Number,of,Claims,0
+"CAT
+Cov A Smoke - 
+Number of Claims",,"Cov A Smoke - Number of Claims
+Number of catastrophe-related smoke claims affecting the dwelling structure (Coverage A).",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"CAT
+Cov C Fire - 
+Incurred Losses",,"CAT (Catastrophe) in Insurance:
+Coverage C (Cov C) in insurance—most commonly found in homeowners insurance policies—refers to Personal Property Coverage. This part of your policy protects your personal belongings against covered perils, such as fire, theft, vandalism, and certain types of water damage.",,,,,,,,,,,,,,,,Risk,Exposure,0,Number,of,Very,High,Fire,Risk,Exposure,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"CAT
+Cov C Fire - 
+Number of Claims",,"CAT
+Cov C Fire - Number of Claims
+Number of catastrophe-related fire claims affecting personal property (Coverage C).",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"CAT
+Cov C Smoke - 
+Incurred Losses",,"CAT
+Cov C Smoke - Incurred Losses
+Total catastrophe-related smoke damage losses incurred for personal property (Coverage C).",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"CAT
+Cov C Smoke - 
+Number of Claims",,"CAT
+Cov C Smoke - Number of Claims
+Number of catastrophe-related smoke claims affecting personal property (Coverage C).",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Cov A Amount Weighted Avg,,"Cov A Amount Weighted Avg
+Average insured amount for dwelling coverage (Coverage A), weighted by exposure.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Cov C Amount Weighted Avg,,"Cov C Amount Weighted Avg
+Average insured amount for personal property coverage (Coverage C), weighted by exposure.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Earned Exposure,,"Earned exposure is the amount of risk that an insurance company has covered during a given period, typically measured in units such as car-years, policy-years, or house-years.
+""Exposure"" is a unit representing one insured item (car, house, person, etc.) for a set period (usually one year).
+""Earned"" means the portion of the exposure that has already occurred, as opposed to ""unearned exposure,"" which refers to future periods still covered by the policy.
+Purpose: Used to match premiums earned with the risk actually covered, enabling accurate loss ratio and profitability calculations.
+Example:
+If an insurer writes a 12-month auto policy for one car starting January 1, by June 30, they have earned 0.5 car-years of exposure (half the policy term).
+If a policy is canceled after 3 months, the insurer has earned 0.25 policy-years of exposure.
+",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Earned Premium,,"Earned Premium:
+The amount of premium that corresponds to the elapsed portion of an insurance policy. It reflects the revenue the insurer has ""earned"" for providing insurance coverage up to a certain date. Earned premium = Portion of premium for which coverage has already been provided.
+Unearned premium = Portion of premium for which coverage is still to be provided.
+Insurers report earned premium as revenue on their income statements.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"Non-CAT
+Cov A Fire - 
+Incurred Losses",,"Non-CAT refers to non-catastrophe events. These are routine, everyday losses that affect individual policyholders or a small group, not the broader community.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"Non-CAT
+Cov A Fire - 
+Number of Claims",,"Non-CAT
+Cov A Fire - Number of Claims
+Number of non-catastrophe fire claims affecting the dwelling structure (Coverage A).",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"Non-CAT
+Cov A Smoke - 
+Incurred Losses",,"Non-CAT
+Cov A Smoke - Incurred Losses
+Total non-catastrophe smoke damage losses incurred for the dwelling structure (Coverage A).",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"Non-CAT
+Cov A Smoke - 
+Number of Claims",,"Non-CAT
+Cov A Smoke - Number of Claims
+Number of non-catastrophe smoke claims affecting the dwelling structure (Coverage A).",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"Non-CAT
+Cov C Fire - 
+Incurred Losses",,"Non-CAT
+Cov C Fire - Incurred Losses
+Total non-catastrophe fire damage losses incurred for personal property (Coverage C).",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"Non-CAT
+Cov C Fire - 
+Number of Claims",,"Non-CAT
+Cov C Fire - Number of Claims
+Number of non-catastrophe fire claims affecting personal property (Coverage C).",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"Non-CAT
+Cov C Smoke - 
+Incurred Losses",,"Non-CAT
+Cov C Smoke - Incurred Losses
+Total non-catastrophe smoke damage losses incurred for personal property (Coverage C).",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"Non-CAT
+Cov C Smoke - 
+Number of Claims",,"Non-CAT
+Cov C Smoke - Number of Claims
+Number of non-catastrophe smoke claims affecting personal property (Coverage C).",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Number of High Fire Risk Exposure,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Number of Low Fire Risk Exposure,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Number of Moderate Fire Risk Exposure,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Number of Negligible Fire Risk Exposure,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Number of Very High Fire Risk Exposure,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Category_CO,,One of one-hot encodig resulst of Category,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Category_DO,,One of one-hot encodig resulst of Category,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Category_DT,,One of one-hot encodig resulst of Category,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Category_HO,,One of one-hot encodig resulst of Category,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Category_MH,,One of one-hot encodig resulst of Category,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Category_RT,,One of one-hot encodig resulst of Category,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

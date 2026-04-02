@@ -1,0 +1,23 @@
+# Dataset: wildfire_preprocessed
+# Source : data/wildfire_preprocessed.csv
+# Build  : python scripts/preprocess.py
+# ZIPs   : 1906 | Years: 2018-2021 | Features: 9
+
+data:
+  path: data/wildfire_preprocessed.csv
+  time_steps: 3
+  n_future: 1
+  input_size: 9
+  split: [0.70, 0.15, 0.15]
+  log_target: false
+  features:
+    - avg_fire_risk_score
+    - earned_exposure
+    - cat_fire_losses
+    - noncat_fire_losses
+    - total_population
+    - median_income
+    - premium_rolling_mean
+    - year_sin
+    - year_cos
+  target: earned_premium

@@ -1,0 +1,22 @@
+# mandatories
+numpy
+pandas
+scikit-learn
+torch
+lightning
+pennylane
+
+# app
+gradio
+
+# others
+rich
+seaborn
+matplotlib
+hydra-core
+rootutils
+psutil
+openpyxl
+
+# dev
+tensorboard

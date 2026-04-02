@@ -1,0 +1,45 @@
+# Dataset: wildfire_engineered — Task 1A: Fire Occurrence Classification
+# Target : fire_occurred  (binary: 0 = no wildfire, 1 = wildfire occurred)
+# Source : data/wildfire_engineered.csv
+# Build  : python scripts/preprocess.py --engineered
+#
+# Uses 3 years of history (2018–2020) to predict whether a wildfire
+# occurred in 2021.  Equivalent to predicting 2023 occurrence given 2020–2022.
+#
+# Loss    : BCEWithLogitsLoss
+# Metrics : accuracy, F1, AUROC
+#
+# Run:
+#   python scripts/train.py --config configs/model/cQLSTM.yaml \
+#                           --dataset configs/dataset/wildfire_fire.yaml
+
+data:
+  path: data/wildfire_engineered.csv
+  task: classification      # BCEWithLogitsLoss, accuracy/F1/AUROC metrics
+  time_steps: 3
+  n_future: 1
+  input_size: 14
+  split: [0.70, 0.15, 0.15]
+  log_target: false
+  features:
+    # fire risk score (lagged)
+    - avg_fire_risk_score
+    # weather
+    - avg_tmax_c
+    - avg_tmin_c
+    - tot_prcp_mm
+    - temp_range
+    - drought_proxy
+    - log_prcp
+    # fire history (acres burned, not the occurrence flag — that's the target)
+    - log_gis_acres
+    # risk tier composition
+    - high_risk_pct
+    - risk_concentration
+    # socioeconomic
+    - total_population
+    - poverty_rate
+    - log_median_income
+    # temporal
+    - year_sin
+  target: fire_occurred

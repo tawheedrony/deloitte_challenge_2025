@@ -101,7 +101,8 @@ def build_model(cfg: dict) -> nn.Module:
                       decay_rate=m["decay_rate"],
                       n_qubits=m["n_qubits"],
                       n_qlayers=m["n_qlayers"],
-                      n_esteps=m["n_esteps"])
+                      n_esteps=m["n_esteps"],
+                      data_reupload=m.get("data_reupload", False))
 
     if name == "SSM":
         from models.SSM import SSM
@@ -118,7 +119,8 @@ def build_model(cfg: dict) -> nn.Module:
                           n_qlayers=m["n_qlayers"],
                           n_esteps=m["n_esteps"],
                           g_min=m["g_min"],
-                          g_max=m["g_max"])
+                          g_max=m["g_max"],
+                          data_reupload=m.get("data_reupload", False))
 
     if name == "cQSSM":
         from models.cQSSM import cQSSM

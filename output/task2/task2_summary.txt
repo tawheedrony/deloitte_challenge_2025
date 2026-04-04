@@ -1,0 +1,21 @@
+======================================================================
+  TASK 2 — INSURANCE PREMIUM PREDICTION SUMMARY
+  2026 Quantum Sustainability Challenge
+======================================================================
+
+  Target: earned_premium
+  Dataset: preprocessed
+
+  RESULTS (ranked by R²)
+----------------------------------------------------------------------
+           model      R²  RMSE ($)  MAE ($)  MdAPE (%)  train_time_s
+    RandomForest  0.8094   2183744   769281       21.7           0.3
+        LightGBM  0.8039   2214823   791849       29.8           0.2
+GradientBoosting  0.5768   3254087  1015860       26.2           1.9
+         XGBoost  0.0934   4762427   992361       20.0          24.7
+         Prophet -0.4269   5806586  1043852        4.8           9.2
+           ARIMA -0.5456   6043218  1085740       10.5           1.8
+
+  Note: ARIMA and Prophet operate on 3-point per-ZIP series,
+  which is the minimum viable input. Tabular models (XGBoost,
+  LightGBM, RF) use the full feature set flattened across years.

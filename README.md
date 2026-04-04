@@ -1,40 +1,154 @@
-# Quantum LSTM — Wildfire Insurance Premium Forecasting
+# Quantum LSTM — 2026 Quantum Sustainability Challenge
 
 ![CLSTM drawio](https://github.com/user-attachments/assets/8ef76e0c-c6de-4a5b-9c9d-4111b9c0b2e9)
 
-A hybrid quantum-classical time series framework applied to the **2026 Quantum Sustainability Challenge** — predicting California wildfire insurance premiums from historical ZIP-level data.
-
-Six model variants are provided: classical baselines (LSTM, SSM), decay-modified classicals (cLSTM), and quantum hybrids (QLSTM, cQLSTM, QSSM) that embed Variational Quantum Circuits (VQCs) via PennyLane.
+A hybrid quantum-classical time series framework for the **2026 Quantum Sustainability Challenge** — predicting California wildfire risk and insurance premiums from historical ZIP-level data.
 
 ---
 
 ## Table of Contents
-- [Introduction](#introduction)
+- [Challenge Overview](#challenge-overview)
+- [Task 1A — Wildfire Risk Prediction](#task-1a--wildfire-risk-prediction)
+- [Task 1B — Quantum vs Classical Evaluation](#task-1b--quantum-vs-classical-evaluation)
+- [Task 2 — Insurance Premium Prediction](#task-2--insurance-premium-prediction)
 - [Models](#models)
 - [Project Structure](#project-structure)
 - [Requirements](#requirements)
 - [Dataset](#dataset)
 - [Quickstart](#quickstart)
-- [Training](#training)
-- [Evaluation](#evaluation)
-- [Visualization](#visualization)
 - [Configs](#configs)
-- [Benchmark Results](#benchmark-results)
+- [NN Benchmark Results](#nn-benchmark-results)
 - [Logging](#logging)
-- [Demo App](#demo-app)
 - [License](#license)
 
 ---
 
-## Introduction
+## Challenge Overview
 
-This repository presents a hybrid AI framework that integrates Quantum Machine Learning (QML) and classical Deep Learning for time series regression. Variational Quantum Circuits (VQCs) are embedded inside recurrent cell computations, enabling compact parameter footprints while maintaining competitive accuracy.
+The competition presents two tasks using wildfire and insurance datasets for California ZIP codes:
 
-The framework is applied to the **2026 Quantum Sustainability Challenge**: predicting 2021 earned insurance premiums for 1,906 California ZIP codes using 3 years of historical wildfire risk, exposure, loss, and census data (2018–2020).
+| Task | Goal | Target | Data |
+|------|------|--------|------|
+| **1A** | Predict wildfire risk using a quantum/hybrid QML model | `avg_fire_risk_score` (0–4) or `fire_occurred` (binary) | 2018–2020 → predict 2021 |
+| **1B** | Evaluate quantum vs classical performance | Comparison report | Same as 1A |
+| **2** | Predict insurance premiums using time series | `earned_premium` ($) | 2018–2020 → predict 2021 |
+
+---
+
+## Task 1A — Wildfire Risk Prediction
+
+A single script trains **all** model architectures on wildfire risk prediction, evaluates them, and saves outputs.
+
+Quantum models are trained at **4, 8, and 12 qubits**. Classical baselines are trained once. Optionally tests **data re-uploading** for cQLSTM and QSSM.
+
+```bash
+# prerequisite
+python scripts/preprocess.py --engineered
+
+# train + eval all models at 4, 8, 12 qubits
+python scripts/task1a.py
+
+# specific models / qubit counts
+python scripts/task1a.py --models cQLSTM LSTM --qubits 4 8
+python scripts/task1a.py --models cQLSTM QSSM --reupload   # test data re-uploading
+python scripts/task1a.py --epochs 20                        # quick run
+```
+
+**Output** saved to `output/task1a/`:
+- `predictions/` — per-model CSV with predicted vs actual risk scores
+- `task1a_results.csv` — comparison table across all experiments
+- `task1a_summary.txt` — full report with best quantum vs classical comparison
+
+### Resource Requirements
+
+```bash
+python scripts/resource_report.py                     # 4-qubit report
+python scripts/resource_report.py --n_qubits 8        # 8-qubit report
+python scripts/resource_report.py --n_qubits 12       # 12-qubit report
+```
+
+Reports circuit depth, gate counts (1q/2q), parameter counts, VQC structure, and timing benchmarks.
+
+### Quantum Improvements
+
+- **Data re-uploading**: re-encodes classical data between variational layers, increasing expressibility. Enabled with `--reupload` flag or `data_reupload: true` in config.
+- **Multi-qubit scaling**: 4 → 8 → 12 qubits to study the effect of Hilbert space dimension on predictive power.
+
+---
+
+## Task 1B — Quantum vs Classical Evaluation
+
+Task 1B evaluation is built into `task1a.py` — the summary report automatically includes quantum vs classical comparison with parameter efficiency and R² delta.
+
+For a standalone comparison report:
+
+```bash
+python scripts/task1b_report.py --run "lightning_logs/task1a_*/version_0" \
+    --out output/task1b_report.txt
+```
+
+The report covers:
+- **Performance comparison** — R²/RMSE/MAE ranked table
+- **Parameter efficiency** — quantum models achieve competitive results with 10–30x fewer parameters
+- **Computational cost** — forward-pass timing benchmarks
+- **Advantages/disadvantages** — qualitative analysis
+
+---
+
+## Task 2 — Insurance Premium Prediction
+
+Classical time series and ML models predict 2021 earned insurance premiums.
+
+### Classical ML Models
+
+```bash
+# all models (XGBoost, LightGBM, RandomForest, GradientBoosting, ARIMA, Prophet)
+python scripts/task2.py
+
+# specific models
+python scripts/task2.py --models xgboost lgbm rf
+python scripts/task2.py --models arima prophet
+
+# use engineered features (20+ features)
+python scripts/task2.py --dataset engineered
+
+# also train NN models (LSTM, cQLSTM) for comparison
+python scripts/task2.py --include-nn
+```
+
+**Available models:**
+
+| Model | Type | Library |
+|-------|------|---------|
+| XGBoost | Gradient boosted trees | `xgboost` |
+| LightGBM | Gradient boosted trees | `lightgbm` |
+| RandomForest | Ensemble bagging | `sklearn` |
+| GradientBoosting | Gradient boosted trees | `sklearn` |
+| ARIMA | Per-ZIP univariate TS | `statsmodels` |
+| Prophet | Per-ZIP univariate TS | `prophet` |
+
+**Output** saved to `output/task2/`:
+- `predictions/` — per-model CSV with predicted vs actual premiums
+- `task2_results.csv` — comparison table
+- `task2_summary.txt` — full report
+
+### Neural Network Models (Task 2)
+
+NN models can also be trained separately on premium prediction:
+
+```bash
+python scripts/train.py --config configs/model/cQLSTM.yaml
+python scripts/train.py --config configs/model/LSTM.yaml
+
+# evaluate
+python scripts/eval.py --run "lightning_logs/*/version_0"
+```
 
 ---
 
 ## Models
+
+### Neural Network Architectures
 
 | Model | Type | Gate structure | VQC | Params (hidden=64) |
 |---|---|---|---|---|
@@ -44,25 +158,21 @@ The framework is applied to the **2026 Quantum Sustainability Challenge**: predi
 | **cQLSTM** | Quantum + decay | f, i, g, o + decay (unified VQC) | 1 × 4-qubit | 1,597 |
 | **SSM** | Classical SSM | g, delta | — | 9,481 |
 | **QSSM** | Quantum SSM | g, delta (VQC) | 1 × 4-qubit | 957 |
+| **cQSSM** | Quantum SSM + decay | g, i, delta + decay | 1 × 4-qubit | 1,435 |
+| **DeltaNet** | Classical delta-rule | Q, K, V | — | 7,391 |
+| **QDeltaNet** | Quantum delta-rule | Q, K, V (3 VQCs) | 3 × 4-qubit | 2,115 |
 
-All quantum models share the same VQC design:
+### VQC Design
+
 ```
 Encoding per qubit i:  H → RY(arctan(x_i)) → RZ(arctan(x_i²))
 Ansatz (n_qlayers):    CNOT ring → RX/RY/RZ variational rotations
+Data re-upload (opt):  Re-encode RY/RZ between variational layers
 ```
 
-SSM-family recurrence (SSM, QSSM):
-```
-h_t = (1 - g_t) * h_{t-1}  +  g_t * delta_t
-g_t = clamp(sigmoid(g_raw), 0.05, 0.95)
-```
+### Classical ML Models (Task 2)
 
-LSTM-family recurrence (LSTM, cLSTM, QLSTM, cQLSTM):
-```
-c_t = f_t * c_{t-1}  +  i_t * g_t
-h_t = o_t * tanh(c_t)
-# cLSTM/cQLSTM additionally apply: f_t *= (1 - decay_rate)
-```
+XGBoost, LightGBM, RandomForest, GradientBoosting, ARIMA, Prophet — see [Task 2](#task-2--insurance-premium-prediction).
 
 ---
 
@@ -71,46 +181,33 @@ h_t = o_t * tanh(c_t)
 ```
 QLSTM/
 ├── scripts/
-│   ├── train.py                # unified training entry point
-│   ├── eval.py                 # evaluation & multi-run comparison
-│   ├── preprocess.py           # raw data → wildfire_preprocessed.csv
-│   └── visualize.py            # predicted vs actual plots for any set of runs
+│   ├── train.py                # unified NN training entry point
+│   ├── eval.py                 # NN evaluation & multi-run comparison
+│   ├── preprocess.py           # raw data → preprocessed/engineered CSV
+│   ├── visualize.py            # general predicted-vs-actual plots
+│   │
+│   ├── task1a.py               # Task 1A: train + eval ALL models (4/8/12q)
+│   ├── task1a_visualize.py     # Task 1A: risk score visualization
+│   ├── resource_report.py      # Task 1A: quantum resource requirements
+│   ├── task1b_report.py        # Task 1B: quantum vs classical report
+│   │
+│   ├── task2.py                # Task 2: ARIMA, Prophet, XGBoost, LightGBM, RF, GBR
+│   ├── task2_visualize.py      # Task 2: premium prediction visualization
+│   │
+│   └── eda.py                  # exploratory data analysis
 │
-├── configs/                    # one YAML per model
-│   ├── LSTM.yaml
-│   ├── cLSTM.yaml
-│   ├── QLSTM.yaml
-│   ├── cQLSTM.yaml             (default)
-│   ├── SSM.yaml
-│   └── QSSM.yaml
+├── configs/
+│   ├── model/                  # one YAML per NN model (+ Task 1A variants)
+│   └── dataset/                # dataset configs (preprocessed, engineered, wildfire_risk, wildfire_fire)
 │
 ├── src/
-│   ├── models/
-│   │   ├── LSTM.py
-│   │   ├── cLSTM.py
-│   │   ├── QLSTM.py
-│   │   ├── cQLSTM.py
-│   │   ├── SSM.py              (vanilla state-space model)
-│   │   └── QSSM.py             (quantum state-space model)
-│   └── modules/
-│       ├── model.py            (Lightning wrapper)
-│       ├── data.py             (data utilities)
-│       ├── scheduler.py        (warmup + cosine LR)
-│       ├── callback.py
-│       └── utils.py
+│   ├── models/                 # LSTM, cLSTM, QLSTM, cQLSTM, SSM, QSSM, cQSSM, DeltaNet, QDeltaNet
+│   └── modules/                # Lightning wrapper, data, scheduler, callbacks, utils
 │
-├── data/
-│   ├── abfa2rbci2UF6CTj_cal_insurance_fire_census_weather.csv   (raw)
-│   └── wildfire_preprocessed.csv                                (generated)
-│
-├── lightning_logs/
-│   └── {ModelName}_{YYYYMMDD_HHMMSS}/
-│       └── version_0/
-│           ├── best-epoch=XX-valloss=X.XXXX.ckpt
-│           ├── run_config.yaml
-│           └── events.out.tfevents.*
-│
-└── app/                        (Gradio demo)
+├── data/                       # raw + preprocessed CSVs
+├── output/                     # task1a/ and task2/ results, predictions, reports
+├── lightning_logs/             # NN training runs (checkpoints + TensorBoard)
+└── challenge.md                # competition description & todos
 ```
 
 ---
@@ -123,33 +220,25 @@ Python >= 3.10. Create a dedicated environment:
 conda create -n qlstm python=3.11 -y
 conda activate qlstm
 pip install -r requirements.txt
+
+# for Task 2 classical models
+pip install xgboost lightgbm prophet statsmodels
 ```
 
 ---
 
 ## Dataset
 
-Raw data lives in `data/` (four CSV files from the challenge). The preprocessing script aggregates them to one row per (ZIP, Year):
+Raw data lives in `data/`. The preprocessing script aggregates to one row per (ZIP, Year):
 
 ```bash
-python scripts/preprocess.py
-# writes  data/wildfire_preprocessed.csv  (7,624 rows, 1,906 ZIP codes × 4 years)
+python scripts/preprocess.py               # base: 9 features
+python scripts/preprocess.py --engineered  # extended: 20+ features
 ```
 
-**Input sequence** — 3 years (2018–2020) × 9 features per year:
+**Task 1A features** (15 engineered): fire risk, weather, fire history, risk composition, socioeconomic, temporal
 
-| Feature | Description |
-|---|---|
-| `avg_fire_risk_score` | Wildfire hazard score (0–4) |
-| `earned_exposure` | Insured units in the ZIP |
-| `cat_fire_losses` | Catastrophic fire losses ($) |
-| `noncat_fire_losses` | Non-catastrophic fire losses ($) |
-| `total_population` | Census population |
-| `median_income` | Median household income ($) |
-| `premium_rolling_mean` | Expanding mean of prior premiums |
-| `year_sin` / `year_cos` | Cyclical temporal encoding |
-
-**Target** — `earned_premium` for 2021. Dataset split: 70% train / 15% val / 15% test.
+**Task 2 features** (9 base): fire risk, exposure, losses, population, income, rolling premium, temporal
 
 ---
 
@@ -158,140 +247,44 @@ python scripts/preprocess.py
 ```bash
 # 1. preprocess
 python scripts/preprocess.py
+python scripts/preprocess.py --engineered
 
-# 2. train with default model (cQLSTM)
-python scripts/train.py
+# 2. Task 1A: train all models at 4/8/12 qubits
+python scripts/task1a.py
 
-# 3. evaluate
-python scripts/eval.py --run lightning_logs/cQLSTM_YYYYMMDD_HHMMSS/version_0
+# 3. Task 1B: comparison report (included in task1a.py output)
+python scripts/task1b_report.py --run "lightning_logs/task1a_*/version_0"
 
-# 4. visualize
-python scripts/visualize.py --run "lightning_logs/*/version_0" --out results.png
+# 4. Task 2: classical ML models for premium prediction
+python scripts/task2.py
+
+# 5. Resource report
+python scripts/resource_report.py --out output/resource_report.txt
 ```
-
----
-
-## Training
-
-```bash
-# use a model-specific config
-python scripts/train.py --config configs/LSTM.yaml
-python scripts/train.py --config configs/cQLSTM.yaml
-python scripts/train.py --config configs/QSSM.yaml
-
-# override any config key via dot notation
-python scripts/train.py --config configs/cQLSTM.yaml --training.max_epochs 60
-python scripts/train.py --config configs/LSTM.yaml --model.hidden_size 128 --training.lr 1e-3
-
-# custom run name (controls the lightning_logs subfolder)
-python scripts/train.py --logging.run_name my_experiment
-```
-
-Each run saves to `lightning_logs/{run_name}/version_0/` and writes a `run_config.yaml` alongside the checkpoint so the eval script can fully reconstruct the run.
-
----
-
-## Evaluation
-
-```bash
-# single run — full report with learning curves + dollar-scale metrics
-python scripts/eval.py --run lightning_logs/cQLSTM_20260323_135146/version_0
-
-# compare multiple runs side by side
-python scripts/eval.py \
-    --run lightning_logs/LSTM_*/version_0 \
-    --run lightning_logs/cQLSTM_*/version_0 \
-    --run lightning_logs/SSM_*/version_0
-
-# compare all runs at once (glob)
-python scripts/eval.py --run "lightning_logs/*/version_0"
-```
-
-Output includes:
-- Learning curve summary (ep1 → final → best for train/val loss and R²)
-- Test set metrics in scaled and original dollar space (R², RMSE, MAE, MdAPE)
-- Multi-run ranked comparison table when more than one run is passed
-
----
-
-## Visualization
-
-```bash
-# all runs — display interactively
-python scripts/visualize.py --run "lightning_logs/*/version_0"
-
-# specific models — save to file
-python scripts/visualize.py \
-    --run lightning_logs/LSTM_*/version_0 \
-    --run lightning_logs/cQLSTM_*/version_0 \
-    --out comparison.png
-```
-
-Produces a 3-panel figure:
-- **Scatter** — predicted vs actual premium per model (with identity line)
-- **RMSE bar** — test RMSE per model in dollar scale
-- **R² bar** — test R² per model
 
 ---
 
 ## Configs
 
-Each model has its own YAML in `configs/`. All share the same `data` and `training` blocks; only the `model` section differs.
+Each NN model has its own YAML in `configs/model/`. Override any key via CLI:
 
-```yaml
-# configs/cQLSTM.yaml
-model:
-  name: cQLSTM
-  hidden_size: 64
-  n_qubits: 4
-  n_qlayers: 1
-  n_esteps: 1
-  decay_rate: 0.1
-
-training:
-  seed: 42
-  batch_size: 32
-  max_epochs: 40
-  lr: 2.0e-3
-  weight_decay: 1.0e-4
-  warmup_epochs: 3
-  warmup_start_factor: 0.01
-  early_stop_patience: 10
-
-logging:
-  log_dir: lightning_logs
-  run_name: null          # null → auto "{model.name}_{YYYYMMDD_HHMMSS}"
+```bash
+python scripts/train.py --config configs/model/cQLSTM_task1a.yaml --model.n_qubits 8
+python scripts/train.py --config configs/model/cQLSTM.yaml --model.data_reupload true
 ```
 
 ---
 
-## Benchmark Results
+## NN Benchmark Results
 
-python scripts/eval.py \
-  --run "lightning_logs/LSTM_20260323_135531/version_0" \
-  --run "lightning_logs/cLSTM_20260323_135847/version_0" \
-  --run "lightning_logs/QLSTM_20260323_171749/version_0" \
-  --run "lightning_logs/cQLSTM_20260323_135146/version_0" \
-  --run "lightning_logs/SSM_20260323_140438/version_0" \
-  --run "lightning_logs/QSSM_20260323_140529/version_0" \
-  --run "lightning_logs/cQSSM_20260323_144546/version_0" \
-  --run "lightning_logs/DeltaNet_20260323_151946/version_0" \
-  --run "lightning_logs/QDeltaNet_20260323_165819/version_0" \
-  2>&1 | grep -v "Warning\|pennylane\|Future\|Tip\|litlogger"
+Premium prediction (Task 2) — neural network models:
 
-
-python scripts/eval.py \
-  --run "lightning_logs/cQLSTM_20260323_174734/version_0" \
-  --run "lightning_logs/cQLSTM_20260323_135146/version_0" \
-  --run "lightning_logs/cQLSTM_20260323_174858/version_0" 2>&1 | grep -v "Warning\|pennylane\|Future\|Tip\|litlogger"
-
-
-
+```
 ══════════════════════════════════════════════════════════════════════
   COMPARISON SUMMARY  (ranked by Test R²)
 ══════════════════════════════════════════════════════════════════════
                  Run  Epochs  Best val/loss  Test R²  RMSE ($)  MAE ($)  MdAPE (%)
-Model                                                                             
+Model
 cQLSTM     version_0      40       0.030899   0.8317   2051810   753291       34.3
 DeltaNet   version_0      32       0.026857   0.8172   2138799   796730       33.6
 QSSM       version_0      40       0.027649   0.8131   2162429   735898       38.7
@@ -301,27 +294,13 @@ LSTM       version_0      40       0.029618   0.8023   2224103   786203       36
 SSM        version_0      40       0.024315   0.7955   2262139   730289       30.7
 cQSSM      version_0      36       0.072250   0.6946   2764082  1063362       37.9
 QLSTM      version_0      40       0.035170  -1.2738   7542416  7199800     1120.2
+```
 
 ## Logging
 
 ```bash
-# single run
-tensorboard --logdir lightning_logs/cQLSTM_20260323_135146
-
-# all runs
 tensorboard --logdir lightning_logs --bind_all
 ```
-
-Each run directory contains:
-```
-version_0/
-├── best-epoch=XX-valloss=X.XXXX.ckpt   ← best checkpoint (monitored: val/loss)
-├── run_config.yaml                      ← full resolved config (used by eval.py)
-└── events.out.tfevents.*               ← TensorBoard scalars
-```
-
-Logged scalars per epoch: `train/loss`, `train/rmse`, `train/mae`, `train/r2`, `val/loss`, `val/rmse`, `val/mae`, `val/r2`, `test/*` (at end), per-layer gradient norms.
-
 
 ---
 

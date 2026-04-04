@@ -57,6 +57,7 @@ class QuantumSSM(nn.Module):
         n_esteps: int = 1,
         g_min: float = 0.05,
         g_max: float = 0.95,
+        data_reupload: bool = False,
         backend: str = "default.qubit",
     ):
         super().__init__()
@@ -67,6 +68,7 @@ class QuantumSSM(nn.Module):
         self.n_esteps     = n_esteps
         self.g_min        = g_min
         self.g_max        = g_max
+        self.data_reupload = data_reupload
 
         # ── feature weighting (same as cQLSTM) ───────────────────────────
         self.feature_weighting = nn.Parameter(torch.ones(1, 1, input_size))
@@ -75,20 +77,32 @@ class QuantumSSM(nn.Module):
         self.entry = nn.Linear(input_size + hidden_size, n_qubits)
         self.exit  = nn.Linear(n_qubits, hidden_size * 2)
 
-        # ── 4-qubit VQC (identical circuit to cQLSTM) ────────────────────
+        # ── VQC with optional data re-uploading ──────────────────────────
         self.wires  = list(range(n_qubits))
         self._dev   = qml.device(backend, wires=n_qubits)
+
+        _data_reupload = data_reupload
 
         @qml.qnode(self._dev, interface="torch")
         def _qnode(inputs, weights):
             features    = inputs.transpose(1, 0)
             ry_params   = [torch.arctan(f)    for f in features]
             rz_params   = [torch.arctan(f**2) for f in features]
+
+            # Initial encoding
             for i in range(n_qubits):
                 qml.Hadamard(wires=self.wires[i])
                 qml.RY(ry_params[i], wires=self.wires[i])
                 qml.RZ(rz_params[i], wires=self.wires[i])
-            qml.layer(self._ansatz, n_qlayers, weights, wires_type=self.wires)
+
+            # Variational layers with optional data re-uploading
+            for layer in range(n_qlayers):
+                self._ansatz(weights[layer], self.wires)
+                if _data_reupload and layer < n_qlayers - 1:
+                    for i in range(n_qubits):
+                        qml.RY(ry_params[i], wires=self.wires[i])
+                        qml.RZ(rz_params[i], wires=self.wires[i])
+
             return [qml.expval(qml.PauliZ(wires=i)) for i in self.wires]
 
         weight_shapes = {"weights": (n_qlayers, self.n_vrotations, n_qubits)}

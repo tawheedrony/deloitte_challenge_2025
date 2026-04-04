@@ -12,16 +12,18 @@ class cQLSTM(nn.Module):
         n_qubits=4,
         n_qlayers=1,
         n_esteps=1,
+        data_reupload=False,
         backend="default.qubit",
     ):
         super().__init__()
         self.n_inputs = input_size
         self.hidden_size = hidden_size
         self.decay_rate = decay_rate
-        self.n_qubits = n_qubits  # qubits of 3 gates are combined
+        self.n_qubits = n_qubits
         self.n_qlayers = n_qlayers
-        self.n_vrotations = 3  # Number of ratations for Variational layer
-        self.n_esteps = n_esteps  # Number of steps for Entangling layer pairs
+        self.n_vrotations = 3
+        self.n_esteps = n_esteps
+        self.data_reupload = data_reupload
         self.backend = backend
 
         # Weighted features
@@ -35,24 +37,33 @@ class cQLSTM(nn.Module):
         self.wires = [i for i in range(self.n_qubits)]
         self.device = qml.device(self.backend, wires=self.n_qubits)
 
+        _data_reupload = data_reupload
+        _n_qlayers = n_qlayers
+        _n_qubits = n_qubits
+        _wires = self.wires
+
         @qml.qnode(self.device, interface="torch")
         def _qnode(inputs, weights):
-            # Pennylane uses batch in second dim
             features = inputs.transpose(1, 0)
-
-            # Encoding
             ry_params = [torch.arctan(feature) for feature in features]
             rz_params = [torch.arctan(feature**2) for feature in features]
-            for i in range(self.n_qubits):
-                qml.Hadamard(wires=self.wires[i])
-                qml.RY(ry_params[i], wires=self.wires[i])
-                qml.RZ(rz_params[i], wires=self.wires[i])
 
-            # Variational block
-            qml.layer(self._ansatz, self.n_qlayers, weights, wires_type=self.wires)
+            # Initial encoding
+            for i in range(_n_qubits):
+                qml.Hadamard(wires=_wires[i])
+                qml.RY(ry_params[i], wires=_wires[i])
+                qml.RZ(rz_params[i], wires=_wires[i])
 
-            # Measurement
-            return [qml.expval(qml.PauliZ(wires=i)) for i in self.wires]
+            # Variational block (with optional data re-uploading)
+            for layer in range(_n_qlayers):
+                self._ansatz(weights[layer], _wires)
+                # Re-encode data between variational layers
+                if _data_reupload and layer < _n_qlayers - 1:
+                    for i in range(_n_qubits):
+                        qml.RY(ry_params[i], wires=_wires[i])
+                        qml.RZ(rz_params[i], wires=_wires[i])
+
+            return [qml.expval(qml.PauliZ(wires=i)) for i in _wires]
 
         weight_shapes = {"weights": (self.n_qlayers, self.n_vrotations, self.n_qubits)}
         self.VQC = qml.qnn.TorchLayer(_qnode, weight_shapes)

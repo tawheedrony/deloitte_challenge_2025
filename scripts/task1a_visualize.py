@@ -1,21 +1,35 @@
 """
 scripts/task1a_visualize.py  —  Task 1A: Wildfire Risk Prediction Visualization
 ================================================================================
-Plots predicted vs actual wildfire risk scores and fire occurrence predictions
-for Task 1A runs.
+Plots predicted vs actual wildfire risk scores as time-series-style line plots,
+sorted by actual value, so you can see how well the model tracks the true signal.
+
+Supports loading from:
+  - NN runs (lightning_logs)
+  - CSV files (output/task1a/predictions/)
 
 Usage:
-    # all Task 1A runs
-    python scripts/task1a_visualize.py --run "lightning_logs/*task1a*/version_0"
-
-    # specific models
+    # from saved CSVs (one model per plot)
     python scripts/task1a_visualize.py \\
-        --run lightning_logs/cQLSTM*task1a*/version_0 \\
-        --run lightning_logs/LSTM*task1a*/version_0
+        --from-csv output/task1a/predictions/cQLSTM_4q.csv \\
+        --out output/task1a_cQLSTM_4q.png
 
-    # save to file
-    python scripts/task1a_visualize.py --run "lightning_logs/*task1a*/version_0" \\
-                                       --out output/task1a_risk_prediction.png
+    # multiple models overlaid
+    python scripts/task1a_visualize.py \\
+        --from-csv output/task1a/predictions/cQLSTM_4q.csv \\
+        --from-csv output/task1a/predictions/LSTM.csv \\
+        --out output/task1a_comparison.png
+
+    # from NN runs
+    python scripts/task1a_visualize.py \\
+        --run "lightning_logs/task1a_cQLSTM_4q_*/version_0" \\
+        --out output/task1a_cQLSTM.png
+
+    # mix CSV + NN runs
+    python scripts/task1a_visualize.py \\
+        --from-csv output/task1a/predictions/cQLSTM_4q.csv \\
+        --run "lightning_logs/task1a_LSTM_*/version_0" \\
+        --out output/task1a_mixed.png
 """
 
 import argparse
@@ -36,7 +50,7 @@ import torch.nn as nn
 import torch.optim as optim
 import yaml
 from matplotlib import pyplot as plt
-from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score,
+from sklearn.metrics import (accuracy_score, f1_score,
                               mean_absolute_error, mean_squared_error, r2_score)
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Dataset, Subset
@@ -111,7 +125,7 @@ def load_run(run_dir):
     return lit, cfg
 
 
-def predict(lit, loader, scaler_y, task):
+def predict_nn(lit, loader, scaler_y, task):
     preds, trues = [], []
     with torch.no_grad():
         for X, y in loader:
@@ -132,56 +146,86 @@ def predict(lit, loader, scaler_y, task):
     return pred, true
 
 
+def load_from_csv(csv_paths):
+    """Load predictions from CSV files (output by task1a.py)."""
+    runs = []
+    for csv_path in csv_paths:
+        csv_path = Path(csv_path)
+        if not csv_path.exists():
+            print(f"  [skip] {csv_path} not found"); continue
+
+        df = pd.read_csv(csv_path)
+        if "predicted" not in df.columns or "actual" not in df.columns:
+            print(f"  [skip] {csv_path} missing predicted/actual columns"); continue
+
+        # these are in scaled space — we don't have the scaler, so plot as-is
+        pred = df["predicted"].values
+        true = df["actual"].values
+        name = csv_path.stem
+
+        metrics = {
+            "r2": r2_score(true, pred),
+            "rmse": float(np.sqrt(mean_squared_error(true, pred))),
+            "mae": float(mean_absolute_error(true, pred)),
+        }
+        if "ZIP" in df.columns:
+            metrics["zips"] = df["ZIP"].values
+
+        print(f"  {name:<25} R²={metrics['r2']:.4f}  RMSE={metrics['rmse']:.4f}")
+        runs.append((name, pred, true, metrics))
+
+    return runs
+
+
 # ─────────────────────────── plotting ────────────────────────────────────
 
 COLORS = ["#2196F3", "#F44336", "#4CAF50", "#FF9800", "#9C27B0", "#00BCD4",
-          "#795548", "#607D8B"]
+          "#795548", "#607D8B", "#E91E63", "#009688"]
 
 
-def plot_regression(runs_data, out_path):
-    """Plot for regression task (risk score prediction)."""
+def plot_timeseries(runs_data, out_path, title="Task 1A — Wildfire Risk Score"):
+    """
+    Time-series style plot: actual (black) + predicted (colored) sorted by actual value.
+    One subplot per model.
+    """
     n = len(runs_data)
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-    fig.suptitle("Task 1A — Wildfire Risk Score Prediction (Test Set)",
-                 fontsize=14, fontweight="bold")
+    cols = min(n, 3)
+    rows = (n + cols - 1) // cols
 
-    ax_scatter, ax_rmse, ax_r2 = axes
+    fig, axes = plt.subplots(rows, cols, figsize=(7 * cols, 5 * rows), squeeze=False)
+    fig.suptitle(f"{title} — Predicted vs Actual (Test Set)",
+                 fontsize=14, fontweight="bold", y=1.02)
 
-    # scatter: predicted vs actual
-    all_true = runs_data[0][2]
-    lo, hi = all_true.min(), all_true.max()
-    ax_scatter.plot([lo, hi], [lo, hi], "k--", lw=1, alpha=0.5, label="Perfect")
+    for idx, (name, pred, true, m) in enumerate(runs_data):
+        ax = axes[idx // cols][idx % cols]
 
-    for i, (name, pred, true, m) in enumerate(runs_data):
-        c = COLORS[i % len(COLORS)]
-        ax_scatter.scatter(true, pred, alpha=0.35, s=18, color=c,
-                           label=f"{name}  (R²={m['r2']:.3f})")
+        # sort by actual value for clean visualization
+        order = np.argsort(true)
+        true_sorted = true[order]
+        pred_sorted = pred[order]
+        x = np.arange(len(true_sorted))
 
-    ax_scatter.set_xlabel("Actual Risk Score", fontsize=11)
-    ax_scatter.set_ylabel("Predicted Risk Score", fontsize=11)
-    ax_scatter.set_title("Predicted vs Actual", fontsize=12)
-    ax_scatter.legend(fontsize=9, loc="upper left")
+        ax.plot(x, true_sorted, color="black", linewidth=1.2, alpha=0.8, label="Actual")
+        ax.plot(x, pred_sorted, color=COLORS[idx % len(COLORS)], linewidth=1.0,
+                alpha=0.7, label="Predicted")
 
-    # bar: RMSE
-    names = [r[0] for r in runs_data]
-    rmses = [r[3]["rmse"] for r in runs_data]
-    bars = ax_rmse.bar(names, rmses, color=COLORS[:n], edgecolor="white", width=0.5)
-    ax_rmse.bar_label(bars, fmt="%.3f", padding=3, fontsize=9)
-    ax_rmse.set_ylabel("RMSE", fontsize=11)
-    ax_rmse.set_title("Test RMSE  (lower is better)", fontsize=12)
-    ax_rmse.tick_params(axis="x", rotation=20)
+        # fill error region
+        ax.fill_between(x, true_sorted, pred_sorted, alpha=0.15,
+                         color=COLORS[idx % len(COLORS)])
 
-    # bar: R²
-    r2s = [r[3]["r2"] for r in runs_data]
-    bars = ax_r2.bar(names, r2s, color=COLORS[:n], edgecolor="white", width=0.5)
-    ax_r2.bar_label(bars, fmt="%.3f", padding=3, fontsize=9)
-    ax_r2.set_ylim(0, 1)
-    ax_r2.set_ylabel("R²", fontsize=11)
-    ax_r2.set_title("Test R²  (higher is better)", fontsize=12)
-    ax_r2.tick_params(axis="x", rotation=20)
+        ax.set_title(f"{name}  (R²={m['r2']:.3f}, RMSE={m['rmse']:.3f})", fontsize=11)
+        ax.set_xlabel("ZIP codes (sorted by actual)", fontsize=10)
+        ax.set_ylabel("Risk Score", fontsize=10)
+        ax.legend(fontsize=9, loc="upper left")
+        ax.grid(True, alpha=0.3)
+
+    # hide empty subplots
+    for idx in range(n, rows * cols):
+        axes[idx // cols][idx % cols].set_visible(False)
 
     plt.tight_layout()
     if out_path:
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(out_path, dpi=180, bbox_inches="tight")
         print(f"Saved  ->  {out_path}")
     else:
@@ -189,51 +233,79 @@ def plot_regression(runs_data, out_path):
     plt.close(fig)
 
 
-def plot_classification(runs_data, out_path):
-    """Plot for classification task (fire occurrence)."""
-    n = len(runs_data)
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-    fig.suptitle("Task 1A — Wildfire Occurrence Classification (Test Set)",
-                 fontsize=14, fontweight="bold")
+def plot_by_zip(runs_data, out_path, data_path=None, target_col="avg_fire_risk_score",
+                n_zips=4, selected_zips=None, title="Task 1A — Per-ZIP Time Series"):
+    """
+    For selected ZIP codes, plot historical target values (2018-2020) + predicted
+    vs actual 2021. One subplot per ZIP, each model as a different colored line.
+    """
+    # load historical data
+    if data_path is None:
+        data_path = ROOT / "data" / "wildfire_engineered.csv"
+    if not Path(data_path).exists():
+        data_path = ROOT / "data" / "wildfire_preprocessed.csv"
+    raw_df = pd.read_csv(data_path).sort_values(["ZIP", "Year"])
+    years = sorted(raw_df["Year"].unique())
+    tgt_year = years[-1]
+    hist_years = years[:-1]
 
-    ax_prob, ax_f1, ax_acc = axes
+    # get ZIPs from the first model that has them
+    first_zips = None
+    for name, pred, true, m in runs_data:
+        if "zips" in m:
+            first_zips = m["zips"]
+            break
 
-    # probability distribution
-    for i, (name, prob, true, m) in enumerate(runs_data):
-        c = COLORS[i % len(COLORS)]
-        mask_pos = true == 1
-        mask_neg = true == 0
-        ax_prob.hist(prob[mask_pos], bins=30, alpha=0.4, color=c,
-                     label=f"{name} (fire)", density=True)
-        ax_prob.hist(prob[mask_neg], bins=30, alpha=0.2, color=c,
-                     linestyle="--", density=True)
-    ax_prob.set_xlabel("Predicted Probability", fontsize=11)
-    ax_prob.set_ylabel("Density", fontsize=11)
-    ax_prob.set_title("Probability Distribution", fontsize=12)
-    ax_prob.legend(fontsize=8)
-    ax_prob.axvline(0.5, color="red", linestyle="--", alpha=0.5)
+    if first_zips is None:
+        print("  [skip] No ZIP info in prediction CSVs. Re-run task1a.py to include ZIP column.")
+        return
 
-    # bar: F1
-    names = [r[0] for r in runs_data]
-    f1s = [r[3]["f1"] for r in runs_data]
-    bars = ax_f1.bar(names, f1s, color=COLORS[:n], edgecolor="white", width=0.5)
-    ax_f1.bar_label(bars, fmt="%.3f", padding=3, fontsize=9)
-    ax_f1.set_ylim(0, 1)
-    ax_f1.set_ylabel("F1 Score", fontsize=11)
-    ax_f1.set_title("Test F1  (higher is better)", fontsize=12)
-    ax_f1.tick_params(axis="x", rotation=20)
+    if selected_zips is None:
+        # pick n_zips spread across the risk range
+        zip_true = {z: t for z, t in zip(first_zips, runs_data[0][2])}
+        sorted_zips = sorted(zip_true.keys(), key=lambda z: zip_true[z])
+        n = len(sorted_zips)
+        indices = [int(i * (n - 1) / (n_zips - 1)) for i in range(n_zips)]
+        selected_zips = [sorted_zips[i] for i in indices]
 
-    # bar: Accuracy
-    accs = [r[3]["accuracy"] for r in runs_data]
-    bars = ax_acc.bar(names, accs, color=COLORS[:n], edgecolor="white", width=0.5)
-    ax_acc.bar_label(bars, fmt="%.3f", padding=3, fontsize=9)
-    ax_acc.set_ylim(0, 1)
-    ax_acc.set_ylabel("Accuracy", fontsize=11)
-    ax_acc.set_title("Test Accuracy  (higher is better)", fontsize=12)
-    ax_acc.tick_params(axis="x", rotation=20)
+    n_zips = len(selected_zips)
+
+    fig, axes = plt.subplots(1, n_zips, figsize=(6 * n_zips, 5), squeeze=False)
+    fig.suptitle(f"{title} — Selected ZIP Codes", fontsize=14, fontweight="bold", y=1.02)
+
+    for col_idx, zip_code in enumerate(selected_zips):
+        ax = axes[0][col_idx]
+
+        # historical values from raw data
+        z_df = raw_df[raw_df["ZIP"] == zip_code].set_index("Year").sort_index()
+        if target_col in z_df.columns:
+            hist_vals = [z_df.loc[yr, target_col] if yr in z_df.index else np.nan
+                         for yr in hist_years]
+            ax.plot(hist_years, hist_vals, "ko-", linewidth=1.5, markersize=6,
+                    label="Historical", zorder=5)
+
+        # predicted vs actual for 2021 from each model
+        for m_idx, (name, pred, true, metrics) in enumerate(runs_data):
+            if "zips" not in metrics:
+                continue
+            zips = metrics["zips"]
+            if zip_code in zips:
+                z_i = list(zips).index(zip_code)
+                color = COLORS[m_idx % len(COLORS)]
+                ax.plot(tgt_year, true[z_i], "s", color="black", markersize=10, zorder=6)
+                ax.plot(tgt_year, pred[z_i], "^", color=color, markersize=10,
+                        label=f"{name} pred", zorder=7)
+
+        ax.set_title(f"ZIP {zip_code}", fontsize=11)
+        ax.set_xlabel("Year", fontsize=10)
+        ax.set_ylabel(target_col.replace("_", " ").title(), fontsize=10)
+        ax.set_xticks(years)
+        ax.legend(fontsize=8, loc="best")
+        ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
     if out_path:
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(out_path, dpi=180, bbox_inches="tight")
         print(f"Saved  ->  {out_path}")
     else:
@@ -260,64 +332,74 @@ def resolve_dirs(raw):
 def main():
     parser = argparse.ArgumentParser(
         description="Task 1A: Visualize wildfire risk predictions.")
-    parser.add_argument("--run", action="append", required=True, metavar="DIR")
+    parser.add_argument("--run", action="append", default=None, metavar="DIR",
+                        help="NN run version dir (repeat or glob)")
+    parser.add_argument("--from-csv", action="append", default=None, metavar="CSV",
+                        help="Prediction CSV from task1a.py. Repeat for multiple. Globs accepted.")
     parser.add_argument("--out", default=None, metavar="FILE",
                         help="Save plot to file (PNG/PDF)")
+    parser.add_argument("--by-zip", action="store_true",
+                        help="Plot per-ZIP time series (historical + predicted 2021)")
+    parser.add_argument("--zips", nargs="+", type=int, default=None,
+                        help="Specific ZIP codes for --by-zip (default: auto-select 4)")
     args = parser.parse_args()
 
-    run_dirs = resolve_dirs(args.run)
-    if not run_dirs:
-        print("No valid run directories found."); return
+    if not args.run and not args.from_csv:
+        parser.error("Provide at least one of --run or --from-csv")
 
-    # separate regression and classification runs
-    reg_data, cls_data = [], []
+    runs_data = []
 
-    for run_dir in run_dirs:
-        print(f"Loading  {run_dir} ...")
-        try:
-            lit, cfg = load_run(run_dir)
-        except (FileNotFoundError, Exception) as e:
-            print(f"  [skip] {e}"); continue
+    # ── load from CSV ────────────────────────────────────────────────
+    if args.from_csv:
+        csv_paths = []
+        for pattern in args.from_csv:
+            expanded = glob.glob(pattern)
+            csv_paths.extend(expanded if expanded else [pattern])
+        runs_data.extend(load_from_csv(csv_paths))
 
-        loader, scaler_y, task = rebuild_test(cfg)
-        pred, true = predict(lit, loader, scaler_y, task)
-        name = cfg["model"]["name"]
+    # ── load from NN runs ────────────────────────────────────────────
+    if args.run:
+        run_dirs = resolve_dirs(args.run)
+        for run_dir in run_dirs:
+            print(f"Loading  {run_dir} ...")
+            try:
+                lit, cfg = load_run(run_dir)
+            except (FileNotFoundError, Exception) as e:
+                print(f"  [skip] {e}"); continue
 
-        if task == "classification":
-            pred_bin = (pred >= 0.5).astype(int)
-            true_bin = true.astype(int)
-            metrics = {
-                "accuracy": float(accuracy_score(true_bin, pred_bin)),
-                "f1": float(f1_score(true_bin, pred_bin, zero_division=0)),
-            }
-            cls_data.append((name, pred, true, metrics))
-            print(f"  {name:<12} [cls] Acc={metrics['accuracy']:.4f}  F1={metrics['f1']:.4f}")
-        else:
+            loader, scaler_y, task = rebuild_test(cfg)
+
+            if task == "classification":
+                print(f"  [skip] classification run — use separate plot")
+                continue
+
+            pred, true = predict_nn(lit, loader, scaler_y, task)
+            name = cfg["model"]["name"]
+
+            # add qubit info from run name
+            run_name = run_dir.parent.name
+            for tag in ["_4q", "_8q", "_12q"]:
+                if tag in run_name:
+                    name = f"{name}{tag}"
+                    break
+            if "reupload" in run_name:
+                name = f"{name}_reupload"
+
             metrics = {
                 "r2": r2_score(true, pred),
                 "rmse": float(np.sqrt(mean_squared_error(true, pred))),
                 "mae": float(mean_absolute_error(true, pred)),
             }
-            reg_data.append((name, pred, true, metrics))
-            print(f"  {name:<12} [reg] R²={metrics['r2']:.4f}  RMSE={metrics['rmse']:.4f}")
+            print(f"  {name:<25} R²={metrics['r2']:.4f}  RMSE={metrics['rmse']:.4f}")
+            runs_data.append((name, pred, true, metrics))
 
-    if reg_data:
-        out = args.out
-        if out and cls_data:
-            # use separate filenames for each task type
-            base = Path(out)
-            out = str(base.with_stem(base.stem + "_regression"))
-        plot_regression(reg_data, out)
+    if not runs_data:
+        print("Nothing to plot."); return
 
-    if cls_data:
-        out = args.out
-        if out and reg_data:
-            base = Path(out)
-            out = str(base.with_stem(base.stem + "_classification"))
-        plot_classification(cls_data, out or args.out)
-
-    if not reg_data and not cls_data:
-        print("Nothing to plot.")
+    if args.by_zip:
+        plot_by_zip(runs_data, args.out, selected_zips=args.zips)
+    else:
+        plot_timeseries(runs_data, args.out)
 
 
 if __name__ == "__main__":

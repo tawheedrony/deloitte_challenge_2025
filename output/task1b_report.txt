@@ -1,0 +1,257 @@
+========================================================================
+  TASK 1B — QUANTUM vs CLASSICAL EVALUATION REPORT
+  2026 Quantum Sustainability Challenge
+========================================================================
+
+1. PERFORMANCE COMPARISON
+------------------------------------------------------------------------
+   Model        Type               R2       RMSE        MAE
+   ──────────── ────────── ────────── ────────── ──────────
+   cQLSTM       Quantum        0.9611     0.1501     0.0829
+   cQLSTM       Quantum        0.9611     0.1501     0.0829
+   cQLSTM       Quantum        0.9611     0.1501     0.0829
+   cQSSM        Quantum        0.9599     0.1524     0.0846
+   QSSM         Quantum        0.9597     0.1527     0.0841
+   cQLSTM       Quantum        0.9586     0.1549     0.0889
+   cQLSTM       Quantum        0.9586     0.1549     0.0889
+   cQLSTM       Quantum        0.9586     0.1549     0.0889
+   cQLSTM       Quantum        0.9574     0.1570     0.0925
+   cQLSTM       Quantum        0.9570     0.1579     0.0942
+   QSSM         Quantum        0.9562     0.1592     0.0946
+   QSSM         Quantum        0.9546     0.1621     0.0906
+   LSTM         Classical      0.9514     0.1678     0.1058
+   SSM          Classical      0.9502     0.1698     0.1011
+   cQSSM        Quantum        0.9483     0.1731     0.1068
+   QDeltaNet    Quantum        0.9481     0.1735     0.1055
+   cLSTM        Classical      0.9472     0.1750     0.1059
+   cQSSM        Quantum        0.9445     0.1793     0.1107
+   QDeltaNet    Quantum        0.9391     0.1879     0.1152
+   QDeltaNet    Quantum        0.9222     0.2122     0.1266
+   DeltaNet     Classical      0.8813     0.2622     0.1746
+   QLSTM        Quantum        0.5086     0.5336     0.4501
+   QLSTM        Quantum        0.3627     0.6077     0.4693
+   QLSTM        Quantum       -0.1683     0.8227     0.7289
+
+2. PARAMETER EFFICIENCY
+------------------------------------------------------------------------
+   Model        Type           Params  Per-param performance
+   ──────────── ────────── ────────── ──────────────────────
+   cQLSTM       Quantum         1,627             0.5907 R2/1k
+   cQLSTM       Quantum         1,627             0.5907 R2/1k
+   cQLSTM       Quantum         1,627             0.5907 R2/1k
+   cQSSM        Quantum         1,447             0.6634 R2/1k
+   QSSM         Quantum           987             0.9724 R2/1k
+   cQLSTM       Quantum         2,983             0.3213 R2/1k
+   cQLSTM       Quantum         2,983             0.3213 R2/1k
+   cQLSTM       Quantum         2,983             0.3213 R2/1k
+   cQLSTM       Quantum         4,339             0.2207 R2/1k
+   cQLSTM       Quantum         4,339             0.2206 R2/1k
+   QSSM         Quantum         2,675             0.3575 R2/1k
+   QSSM         Quantum         1,831             0.5214 R2/1k
+   LSTM         Classical      20,480             0.0465 R2/1k
+   SSM          Classical      10,255             0.0927 R2/1k
+   cQSSM        Quantum         2,559             0.3706 R2/1k
+   QDeltaNet    Quantum         2,115             0.4483 R2/1k
+   cLSTM        Classical      20,495             0.0462 R2/1k
+   cQSSM        Quantum         3,671             0.2573 R2/1k
+   QDeltaNet    Quantum         3,879             0.2421 R2/1k
+   QDeltaNet    Quantum         5,643             0.1634 R2/1k
+   DeltaNet     Classical       7,391             0.1192 R2/1k
+   QLSTM        Quantum           640             0.7947 R2/1k
+   QLSTM        Quantum         1,216             0.2982 R2/1k
+   QLSTM        Quantum         1,792            -0.0939 R2/1k
+
+3. COMPUTATIONAL COST (forward pass, batch=32, CPU)
+------------------------------------------------------------------------
+   Model        Type        Time (ms)     Params
+   ──────────── ────────── ────────── ──────────
+   SSM          Classical         0.1     10,255
+   LSTM         Classical         0.2     20,480
+   cLSTM        Classical         0.2     20,495
+   DeltaNet     Classical         0.7      7,391
+   cQLSTM       Quantum          10.3      1,627
+   QSSM         Quantum          10.5        987
+   cQLSTM       Quantum          10.5      1,627
+   cQSSM        Quantum          16.1      1,447
+   cQLSTM       Quantum          18.8      1,627
+   QDeltaNet    Quantum          31.8      2,115
+   QSSM         Quantum          34.6      1,831
+   cQLSTM       Quantum          35.9      2,983
+   cQLSTM       Quantum          40.2      2,983
+   cQLSTM       Quantum          40.9      2,983
+   QLSTM        Quantum          44.0        640
+   cQSSM        Quantum          51.7      2,559
+   cQLSTM       Quantum          57.7      4,339
+   cQSSM        Quantum          83.7      3,671
+   QSSM         Quantum          95.7      2,675
+   cQLSTM       Quantum          99.0      4,339
+   QDeltaNet    Quantum         113.9      3,879
+   QLSTM        Quantum         160.9      1,216
+   QDeltaNet    Quantum         222.2      5,643
+   QLSTM        Quantum         419.3      1,792
+
+
+5. KEY FINDINGS
+------------------------------------------------------------------------
+   Best quantum  : cQLSTM       R2=0.9611  (1,627 params)
+   Best classical: LSTM         R2=0.9514  (20,480 params)
+   Parameter reduction: 12.6x (quantum uses fewer params)
+   Performance winner : quantum (delta = 0.0098)
+
+========================================================================
+
+
+========================================================================
+  QUANTUM RESOURCE REQUIREMENTS REPORT for 4 QUBIT VQC
+  Task 1A — 2026 Quantum Sustainability Challenge
+========================================================================
+
+1. VARIATIONAL QUANTUM CIRCUIT (VQC) SPECIFICATIONS
+------------------------------------------------------------------------
+   Qubits              : 4
+   Variational layers  : 1
+   Entangling steps    : 1
+   Circuit depth       : 10
+   Total wires         : 4
+   Total gates         : 28
+   Gate types          : {'Hadamard': 4, 'RY': 8, 'RZ': 8, 'CNOT': 4, 'RX': 4}
+   Single-qubit gates  : 24
+   Two-qubit gates     : 4
+   Trainable VQC params: 12
+   Simulator           : default.qubit (PennyLane)
+   Diff method         : backprop
+
+   Encoding (per qubit i):
+     H  ->  RY(arctan(x_i))  ->  RZ(arctan(x_i^2))
+
+   Ansatz (repeated n_qlayers times):
+     CNOT ring (n_esteps offsets)  ->  RX/RY/RZ variational rotations
+
+   Measurement:
+     <Z> expectation value per qubit
+
+2. PARAMETER COUNTS
+------------------------------------------------------------------------
+   Model           Total  Quantum  Classical Type                
+   ──────────── ──────── ──────── ────────── ────────────────────
+   cQLSTM          1,627       12      1,615 Quantum hybrid      
+   QLSTM             640        0        640 Quantum hybrid      
+   QSSM              987       12        975 Quantum hybrid      
+   cQSSM           1,435       12      1,423 Quantum hybrid      
+   QDeltaNet       2,115       36      2,079 Quantum hybrid      
+   LSTM           20,480        0     20,480 Classical baseline  
+   cLSTM          20,495        0     20,495 Classical baseline  
+   SSM            10,255        0     10,255 Classical baseline  
+   DeltaNet        7,391        0      7,391 Classical baseline  
+
+3. TIMING BENCHMARKS (forward pass, batch=32, seq=3, CPU)
+------------------------------------------------------------------------
+   Model         Mean (ms)   Std (ms)   Min (ms)  Speedup vs cQLSTM
+   ──────────── ────────── ────────── ────────── ──────────────────
+   cQLSTM             11.1        0.1       10.9         1.0x (ref)
+   QLSTM              46.2        0.1       46.1               0.2x
+   QSSM               11.1        0.1       11.0               1.0x
+   cQSSM              11.1        0.1       11.0               1.0x
+   QDeltaNet          34.7        1.5       33.4               0.3x
+   LSTM                0.1        0.0        0.1              88.7x
+   cLSTM               0.1        0.0        0.1              77.3x
+   SSM                 0.1        0.0        0.1             108.3x
+   DeltaNet            0.3        0.0        0.3              38.0x
+
+4. VQC USAGE PER MODEL
+------------------------------------------------------------------------
+   cQLSTM       1 x 4-qubit VQC (unified, all 4 gates)
+   QLSTM        4 x 4-qubit VQC (one per gate: f, i, g, o)
+   QSSM         1 x 4-qubit VQC (gating + delta)
+   cQSSM        1 x 4-qubit VQC (gating + delta + decay)
+   QDeltaNet    3 x 4-qubit VQC (Q, K, V projections)
+
+
+========================================================================
+  QUANTUM RESOURCE REQUIREMENTS REPORT For 8 QUBIT
+  Task 1A — 2026 Quantum Sustainability Challenge
+========================================================================
+
+
+1. VARIATIONAL QUANTUM CIRCUIT (VQC) SPECIFICATIONS
+------------------------------------------------------------------------
+   Qubits              : 8
+   Variational layers  : 1
+   Entangling steps    : 1
+   Circuit depth       : 14
+   Total wires         : 8
+   Total gates         : 56
+   Gate types          : {'Hadamard': 8, 'RY': 16, 'RZ': 16, 'CNOT': 8, 'RX': 8}
+   Single-qubit gates  : 48
+   Two-qubit gates     : 8
+   Trainable VQC params: 24
+   Simulator           : default.qubit (PennyLane)
+   Diff method         : backprop
+
+   Encoding (per qubit i):
+     H  ->  RY(arctan(x_i))  ->  RZ(arctan(x_i^2))
+
+   Ansatz (repeated n_qlayers times):
+     CNOT ring (n_esteps offsets)  ->  RX/RY/RZ variational rotations
+
+   Measurement:
+     <Z> expectation value per qubit
+
+2. PARAMETER COUNTS
+------------------------------------------------------------------------
+   Model           Total  Quantum  Classical Type                
+   ──────────── ──────── ──────── ────────── ────────────────────
+   cQLSTM          2,983       24      2,959 Quantum hybrid      
+   QLSTM           1,216        0      1,216 Quantum hybrid      
+   QSSM            1,831       24      1,807 Quantum hybrid      
+   cQSSM           2,535       24      2,511 Quantum hybrid      
+   QDeltaNet       3,879       72      3,807 Quantum hybrid      
+   LSTM           20,480        0     20,480 Classical baseline  
+   cLSTM          20,495        0     20,495 Classical baseline  
+   SSM            10,255        0     10,255 Classical baseline  
+   DeltaNet        7,391        0      7,391 Classical baseline  
+
+3. TIMING BENCHMARKS (forward pass, batch=32, seq=3, CPU)
+------------------------------------------------------------------------
+   Model         Mean (ms)   Std (ms)   Min (ms)  Speedup vs cQLSTM
+   ──────────── ────────── ────────── ────────── ──────────────────
+   cQLSTM             40.6        6.2       33.3         1.0x (ref)
+   QLSTM             153.6       13.1      137.3               0.3x
+   QSSM               40.9        5.6       31.9               1.0x
+   cQSSM              44.0        5.6       36.2               0.9x
+   QDeltaNet         115.2        9.5       99.3               0.4x
+   LSTM                0.2        0.0        0.2             244.3x
+   cLSTM               0.4        0.0        0.4              98.2x
+   SSM                 0.3        0.0        0.3             132.6x
+   DeltaNet            0.7        0.0        0.7              58.6x
+
+4. VQC USAGE PER MODEL
+------------------------------------------------------------------------
+   cQLSTM       1 x 8-qubit VQC (unified, all 4 gates)
+   QLSTM        4 x 8-qubit VQC (one per gate: f, i, g, o)
+   QSSM         1 x 8-qubit VQC (gating + delta)
+   cQSSM        1 x 8-qubit VQC (gating + delta + decay)
+   QDeltaNet    3 x 8-qubit VQC (Q, K, V projections)
+
+5. SUMMARY
+------------------------------------------------------------------------
+   Most parameter-efficient quantum model : QLSTM (1,216 params)
+   Classical LSTM baseline                : LSTM (20,480 params)
+   Parameter reduction factor             : 16.8x fewer params in QLSTM
+
+   Quantum advantage: VQC provides exponentially compact feature
+   encoding in 8-qubit Hilbert space (dim 2^8 = 256),
+   while using only 24 trainable rotation parameters
+   per variational layer.
+
+
+
+Task 2 Summary Results:
+
+              model      R²  RMSE ($)  MAE ($)  MdAPE (%)  train_time_s
+    RandomForest  0.8094   2183744   769281       21.7           0.3
+        LightGBM  0.8039   2214823   791849       29.8           0.2
+GradientBoosting  0.5768   3254087  1015860       26.2           1.9
+         XGBoost  0.0934   4762427   992361       20.0          24.7
+         Prophet -0.4269   5806586  1043852        4.8           9.2
+           ARIMA -0.5456   6043218  1085740       10.5           1.8

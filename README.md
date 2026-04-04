@@ -144,6 +144,41 @@ python scripts/train.py --config configs/model/LSTM.yaml
 python scripts/eval.py --run "lightning_logs/*/version_0"
 ```
 
+
+### Reports
+### All models from CSV predictions
+python scripts/task1a_visualize.py \
+    --from-csv "output/task1a/predictions/*.csv" \
+    --out output/task1a_all.png
+
+### Specific models
+python scripts/task1a_visualize.py \
+    --from-csv output/task1a/predictions/cQLSTM_4q.csv \
+    --from-csv output/task1a/predictions/LSTM.csv \
+    --out output/task1a_cQLSTM_vs_LSTM.png
+
+### Quantum vs Classical (4 models you wanted)
+python scripts/task1a_visualize.py \
+    --from-csv output/task1a/predictions/cQLSTM_4q.csv \
+    --from-csv output/task1a/predictions/LSTM.csv \
+    --from-csv output/task1a/predictions/QSSM_4q.csv \
+    --from-csv output/task1a/predictions/SSM.csv \
+    --out output/task1a_comparison.png
+
+
+# from CSV predictions
+python scripts/task2_visualize.py \
+    --from-csv output/task2/predictions/XGBoost.csv \
+    --from-csv output/task2/predictions/LightGBM.csv \
+    --from-csv output/task2/predictions/RandomForest.csv \
+    --out output/task2_comparison.png
+
+# single model
+python scripts/task2_visualize.py \
+    --from-csv output/task2/predictions/XGBoost.csv \
+    --out output/task2_xgboost.png
+
+
 ---
 
 ## Models

@@ -243,7 +243,7 @@ def run_arima(series_data, split_ratio=0.85):
         print("  [skip] statsmodels not installed. pip install statsmodels")
         return None
 
-    preds, trues = [], []
+    preds, trues, zips = [], [], []
     n_total = len(series_data)
     n_test_start = int(n_total * split_ratio)
 
@@ -257,13 +257,15 @@ def run_arima(series_data, split_ratio=0.85):
             forecast = fitted.forecast(steps=1)[0]
             preds.append(forecast)
             trues.append(target)
+            zips.append(zip_code)
         except Exception:
             # ARIMA can fail on very short or constant series
             preds.append(premiums[-1])  # naive fallback
             trues.append(target)
+            zips.append(zip_code)
 
     train_time = time.time() - t0
-    return np.array(preds), np.array(trues), train_time
+    return np.array(preds), np.array(trues), train_time, zips
 
 
 def run_prophet(series_data, in_years, tgt_year, split_ratio=0.85):
@@ -281,7 +283,7 @@ def run_prophet(series_data, in_years, tgt_year, split_ratio=0.85):
     logging.getLogger("prophet").setLevel(logging.WARNING)
     logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
 
-    preds, trues = [], []
+    preds, trues, zips = [], [], []
     n_total = len(series_data)
     n_test_start = int(n_total * split_ratio)
 
@@ -301,12 +303,14 @@ def run_prophet(series_data, in_years, tgt_year, split_ratio=0.85):
             forecast = m.predict(future)["yhat"].values[0]
             preds.append(forecast)
             trues.append(target)
+            zips.append(zip_code)
         except Exception:
             preds.append(premiums[-1])
             trues.append(target)
+            zips.append(zip_code)
 
     train_time = time.time() - t0
-    return np.array(preds), np.array(trues), train_time
+    return np.array(preds), np.array(trues), train_time, zips
 
 
 # ─────────────────────────── metrics ─────────────────────────────────────
@@ -399,10 +403,13 @@ def main():
             all_results.append(metrics)
 
             # save predictions
-            pd.DataFrame({
+            pred_df = pd.DataFrame({
                 "predicted": pred,
                 "actual": data["y_test"],
-            }).to_csv(out_dir / "predictions" / f"{name}.csv", index=False)
+            })
+            if "zip_test" in data and len(data["zip_test"]) == len(pred_df):
+                pred_df.insert(0, "ZIP", data["zip_test"])
+            pred_df.to_csv(out_dir / "predictions" / f"{name}.csv", index=False)
 
             print(f"  R²={metrics['R²']:.4f}  RMSE=${metrics['RMSE ($)']:,}  "
                   f"MAE=${metrics['MAE ($)']:,}  Time={train_time:.1f}s")
@@ -427,13 +434,15 @@ def main():
 
             result = run_arima(series_data)
             if result is not None:
-                pred, true, train_time = result
+                pred, true, train_time, zips = result
                 metrics = compute_metrics(true, pred, "ARIMA")
                 metrics["train_time_s"] = round(train_time, 1)
                 all_results.append(metrics)
 
-                pd.DataFrame({"predicted": pred, "actual": true}).to_csv(
-                    out_dir / "predictions" / "ARIMA.csv", index=False)
+                arima_df = pd.DataFrame({"predicted": pred, "actual": true})
+                if zips and len(zips) == len(arima_df):
+                    arima_df.insert(0, "ZIP", zips)
+                arima_df.to_csv(out_dir / "predictions" / "ARIMA.csv", index=False)
                 print(f"  R²={metrics['R²']:.4f}  RMSE=${metrics['RMSE ($)']:,}  "
                       f"Time={train_time:.1f}s")
 
@@ -444,13 +453,15 @@ def main():
 
             result = run_prophet(series_data, in_years, tgt_year)
             if result is not None:
-                pred, true, train_time = result
+                pred, true, train_time, zips = result
                 metrics = compute_metrics(true, pred, "Prophet")
                 metrics["train_time_s"] = round(train_time, 1)
                 all_results.append(metrics)
 
-                pd.DataFrame({"predicted": pred, "actual": true}).to_csv(
-                    out_dir / "predictions" / "Prophet.csv", index=False)
+                prophet_df = pd.DataFrame({"predicted": pred, "actual": true})
+                if zips and len(zips) == len(prophet_df):
+                    prophet_df.insert(0, "ZIP", zips)
+                prophet_df.to_csv(out_dir / "predictions" / "Prophet.csv", index=False)
                 print(f"  R²={metrics['R²']:.4f}  RMSE=${metrics['RMSE ($)']:,}  "
                       f"Time={train_time:.1f}s")
 

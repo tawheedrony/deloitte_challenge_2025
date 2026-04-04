@@ -194,7 +194,7 @@ def build_model(cfg):
 # ─────────────────────────── single experiment ───────────────────────────
 
 def run_experiment(name, n_qubits, cfg, dataset, out_dir,
-                   data_reupload=False, epoch_override=None):
+                   data_reupload=False, epoch_override=None, zip_list=None):
     """Train one model, evaluate, return metrics dict."""
     cfg = copy.deepcopy(cfg)
     cfg["model"] = model_cfg(name, n_qubits, data_reupload)
@@ -291,10 +291,19 @@ def run_experiment(name, n_qubits, cfg, dataset, out_dir,
 
     pred_path = out_dir / "predictions" / f"{label}.csv"
     pred_path.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame({
+    pred_df = pd.DataFrame({
         "predicted": np.vstack(all_pred).ravel(),
         "actual": np.vstack(all_true).ravel(),
-    }).to_csv(pred_path, index=False)
+    })
+    # add ZIP codes for test set samples
+    if zip_list is not None:
+        split = cfg["data"]["split"]
+        n = len(dataset)
+        n_tr = int(n * split[0]); n_va = int(n * split[1])
+        test_zips = [zip_list[i] for i in range(n_tr + n_va, n)]
+        if len(test_zips) == len(pred_df):
+            pred_df.insert(0, "ZIP", test_zips)
+    pred_df.to_csv(pred_path, index=False)
 
     print(f"  R²={metrics.get('test/r2', 'N/A'):.4f}  "
           f"RMSE={metrics.get('test/rmse', 'N/A'):.4f}  "
@@ -353,18 +362,18 @@ def main():
         if name in QUANTUM_MODELS:
             for nq in qubit_counts:
                 result = run_experiment(name, nq, cfg, dataset, out_dir,
-                                        epoch_override=args.epochs)
+                                        epoch_override=args.epochs, zip_list=zip_list)
                 all_results.append(result)
 
                 # optionally test data re-uploading
                 if args.reupload and name in REUPLOAD_MODELS:
                     result = run_experiment(name, nq, cfg, dataset, out_dir,
                                             data_reupload=True,
-                                            epoch_override=args.epochs)
+                                            epoch_override=args.epochs, zip_list=zip_list)
                     all_results.append(result)
         else:
             result = run_experiment(name, 0, cfg, dataset, out_dir,
-                                    epoch_override=args.epochs)
+                                    epoch_override=args.epochs, zip_list=zip_list)
             all_results.append(result)
 
     # ── comparison table ─────────────────────────────────────────────

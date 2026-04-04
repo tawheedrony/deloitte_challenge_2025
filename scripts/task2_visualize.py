@@ -131,49 +131,49 @@ COLORS = ["#2196F3", "#F44336", "#4CAF50", "#FF9800", "#9C27B0", "#00BCD4",
           "#795548", "#607D8B"]
 
 
-def plot_all(runs_data, out_path):
+def plot_timeseries(runs_data, out_path, title="Task 2 — Insurance Premium Prediction"):
+    """
+    Time-series style plot: actual (black) + predicted (colored) sorted by actual value.
+    One subplot per model.
+    """
     n = len(runs_data)
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-    fig.suptitle("Task 2 — Insurance Premium Prediction (Test Set)",
-                 fontsize=14, fontweight="bold")
+    cols = min(n, 3)
+    rows = (n + cols - 1) // cols
 
-    ax_scatter, ax_rmse, ax_r2 = axes
+    fig, axes = plt.subplots(rows, cols, figsize=(7 * cols, 5 * rows), squeeze=False)
+    fig.suptitle(f"{title} — Predicted vs Actual (Test Set)",
+                 fontsize=14, fontweight="bold", y=1.02)
 
-    # scatter
-    all_true = runs_data[0][2]
-    lo, hi = all_true.min() / 1e6, all_true.max() / 1e6
-    ax_scatter.plot([lo, hi], [lo, hi], "k--", lw=1, alpha=0.5, label="Perfect")
+    for idx, (name, pred, true, m) in enumerate(runs_data):
+        ax = axes[idx // cols][idx % cols]
 
-    for i, (name, pred, true, m) in enumerate(runs_data):
-        c = COLORS[i % len(COLORS)]
-        ax_scatter.scatter(true / 1e6, pred / 1e6, alpha=0.35, s=18, color=c,
-                           label=f"{name}  (R²={m['r2']:.3f})")
+        # sort by actual value for clean visualization
+        order = np.argsort(true)
+        true_sorted = true[order]
+        pred_sorted = pred[order]
+        x = np.arange(len(true_sorted))
 
-    ax_scatter.set_xlabel("Actual Premium ($M)", fontsize=11)
-    ax_scatter.set_ylabel("Predicted Premium ($M)", fontsize=11)
-    ax_scatter.set_title("Predicted vs Actual", fontsize=12)
-    ax_scatter.legend(fontsize=9, loc="upper left")
+        ax.plot(x, true_sorted, color="black", linewidth=1.2, alpha=0.8, label="Actual")
+        ax.plot(x, pred_sorted, color=COLORS[idx % len(COLORS)], linewidth=1.0,
+                alpha=0.7, label="Predicted")
 
-    # RMSE bars
-    names = [r[0] for r in runs_data]
-    rmses = [r[3]["rmse"] / 1e6 for r in runs_data]
-    bars = ax_rmse.bar(names, rmses, color=COLORS[:n], edgecolor="white", width=0.5)
-    ax_rmse.bar_label(bars, fmt="$%.2fM", padding=3, fontsize=9)
-    ax_rmse.set_ylabel("RMSE ($M)", fontsize=11)
-    ax_rmse.set_title("Test RMSE  (lower is better)", fontsize=12)
-    ax_rmse.tick_params(axis="x", rotation=20)
+        # fill error region
+        ax.fill_between(x, true_sorted, pred_sorted, alpha=0.15,
+                         color=COLORS[idx % len(COLORS)])
 
-    # R² bars
-    r2s = [r[3]["r2"] for r in runs_data]
-    bars = ax_r2.bar(names, r2s, color=COLORS[:n], edgecolor="white", width=0.5)
-    ax_r2.bar_label(bars, fmt="%.3f", padding=3, fontsize=9)
-    ax_r2.set_ylim(0, 1)
-    ax_r2.set_ylabel("R²", fontsize=11)
-    ax_r2.set_title("Test R²  (higher is better)", fontsize=12)
-    ax_r2.tick_params(axis="x", rotation=20)
+        ax.set_title(f"{name}  (R²={m['r2']:.3f}, RMSE=${m['rmse']:,.0f})", fontsize=11)
+        ax.set_xlabel("ZIP codes (sorted by actual)", fontsize=10)
+        ax.set_ylabel("Premium ($)", fontsize=10)
+        ax.legend(fontsize=9, loc="upper left")
+        ax.grid(True, alpha=0.3)
+
+    # hide empty subplots
+    for idx in range(n, rows * cols):
+        axes[idx // cols][idx % cols].set_visible(False)
 
     plt.tight_layout()
     if out_path:
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(out_path, dpi=180, bbox_inches="tight")
         print(f"Saved  ->  {out_path}")
     else:
@@ -197,63 +197,202 @@ def resolve_dirs(raw):
     return dirs
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Task 2: Visualize insurance premium predictions.")
-    parser.add_argument("--run", action="append", required=True, metavar="DIR")
-    parser.add_argument("--out", default=None, metavar="FILE",
-                        help="Save plot to file (PNG/PDF)")
-    args = parser.parse_args()
+def plot_by_zip(runs_data, out_path, data_path=None, target_col="earned_premium",
+                n_zips=4, selected_zips=None, title="Task 2 — Per-ZIP Premium"):
+    """
+    For selected ZIP codes, plot historical premium values (2018-2020) + predicted
+    vs actual 2021. One subplot per ZIP, each model as a different colored marker.
+    """
+    if data_path is None:
+        data_path = ROOT / "data" / "wildfire_engineered.csv"
+    if not Path(data_path).exists():
+        data_path = ROOT / "data" / "wildfire_preprocessed.csv"
+    raw_df = pd.read_csv(data_path).sort_values(["ZIP", "Year"])
+    years = sorted(raw_df["Year"].unique())
+    tgt_year = years[-1]
+    hist_years = years[:-1]
 
-    run_dirs = resolve_dirs(args.run)
-    if not run_dirs:
-        print("No valid run directories found."); return
+    # get ZIPs from the first model that has them
+    first_zips = None
+    for name, pred, true, m in runs_data:
+        if "zips" in m:
+            first_zips = m["zips"]
+            break
 
+    if first_zips is None:
+        print("  [skip] No ZIP info in prediction CSVs. Re-run task2.py to include ZIP column.")
+        return
+
+    if selected_zips is None:
+        # pick n_zips spread across the premium range
+        zip_true = {z: t for z, t in zip(first_zips, runs_data[0][2])}
+        sorted_zips = sorted(zip_true.keys(), key=lambda z: zip_true[z])
+        n = len(sorted_zips)
+        indices = [int(i * (n - 1) / (n_zips - 1)) for i in range(n_zips)]
+        selected_zips = [sorted_zips[i] for i in indices]
+
+    n_zips = len(selected_zips)
+    fig, axes = plt.subplots(1, n_zips, figsize=(6 * n_zips, 5), squeeze=False)
+    fig.suptitle(f"{title} — Selected ZIP Codes", fontsize=14, fontweight="bold", y=1.02)
+
+    for col_idx, zip_code in enumerate(selected_zips):
+        ax = axes[0][col_idx]
+
+        # historical values from raw data
+        z_df = raw_df[raw_df["ZIP"] == zip_code].set_index("Year").sort_index()
+        if target_col in z_df.columns:
+            hist_vals = [z_df.loc[yr, target_col] if yr in z_df.index else np.nan
+                         for yr in hist_years]
+            ax.plot(hist_years, hist_vals, "ko-", linewidth=1.5, markersize=6,
+                    label="Historical", zorder=5)
+
+        # actual 2021 value (black square)
+        actual_plotted = False
+        for m_idx, (name, pred, true, metrics) in enumerate(runs_data):
+            if "zips" not in metrics:
+                continue
+            zips = metrics["zips"]
+            if zip_code in zips:
+                z_i = list(zips).index(zip_code)
+                if not actual_plotted:
+                    ax.plot(tgt_year, true[z_i], "ks", markersize=10,
+                            label="Actual 2021", zorder=6)
+                    # connect historical to actual
+                    if target_col in z_df.columns and len(hist_vals) > 0:
+                        ax.plot([hist_years[-1], tgt_year],
+                                [hist_vals[-1], true[z_i]], "k--", linewidth=1, alpha=0.5)
+                    actual_plotted = True
+                color = COLORS[m_idx % len(COLORS)]
+                ax.plot(tgt_year, pred[z_i], "^", color=color, markersize=10,
+                        label=f"{name}", zorder=7)
+
+        ax.set_title(f"ZIP {zip_code}", fontsize=11)
+        ax.set_xlabel("Year", fontsize=10)
+        ax.set_ylabel("Premium ($)", fontsize=10)
+        ax.set_xticks(years)
+        ax.legend(fontsize=8, loc="best")
+        ax.grid(True, alpha=0.3)
+        ax.ticklabel_format(style="plain", axis="y")
+
+    plt.tight_layout()
+    if out_path:
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(out_path, dpi=180, bbox_inches="tight")
+        print(f"Saved  ->  {out_path}")
+    else:
+        plt.show()
+    plt.close(fig)
+
+
+def load_from_csv(csv_paths):
+    """Load predictions from CSV files (output by task2.py)."""
     runs_data = []
-    for run_dir in run_dirs:
-        print(f"Loading  {run_dir} ...")
-        try:
-            lit, cfg = load_run(run_dir)
-        except (FileNotFoundError, Exception) as e:
-            print(f"  [skip] {e}"); continue
+    for csv_path in csv_paths:
+        csv_path = Path(csv_path)
+        if not csv_path.exists():
+            print(f"  [skip] {csv_path} not found"); continue
 
-        # only process regression (premium) runs
-        task = cfg["data"].get("task", "regression")
-        target = cfg["data"].get("target", "")
-        if task != "regression" or target not in ("earned_premium", ""):
-            print(f"  [skip] not a premium regression run (task={task}, target={target})")
-            continue
+        df = pd.read_csv(csv_path)
+        if "predicted" not in df.columns or "actual" not in df.columns:
+            print(f"  [skip] {csv_path} missing predicted/actual columns"); continue
 
-        loader, scaler_y = rebuild_test(cfg)
-        if loader is None:
-            continue
-
-        log_target = cfg["data"].get("log_target", False)
-        pred, true = predict(lit, loader, scaler_y, log_target)
+        pred = df["predicted"].values
+        true = df["actual"].values
+        name = csv_path.stem
 
         mask = true > 10_000
         metrics = {
             "r2": r2_score(true, pred),
             "rmse": float(np.sqrt(mean_squared_error(true, pred))),
             "mae": float(mean_absolute_error(true, pred)),
-            "mdape": float(np.median(np.abs((true[mask] - pred[mask]) / true[mask])) * 100),
+            "mdape": float(np.median(np.abs((true[mask] - pred[mask]) / true[mask])) * 100) if mask.any() else float("nan"),
         }
-
-        # label: include "chained" tag if present in run name
-        name = cfg["model"]["name"]
-        run_name = run_dir.parent.name
-        if "chained" in run_name:
-            name = f"{name} (chained)"
-        elif "baseline" in run_name:
-            name = f"{name} (baseline)"
+        if "ZIP" in df.columns:
+            metrics["zips"] = df["ZIP"].values
 
         print(f"  {name:<20}  R²={metrics['r2']:.4f}  RMSE=${metrics['rmse']:,.0f}")
         runs_data.append((name, pred, true, metrics))
 
+    return runs_data
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Task 2: Visualize insurance premium predictions.")
+    parser.add_argument("--run", action="append", default=None, metavar="DIR",
+                        help="NN run version dir (repeat or glob)")
+    parser.add_argument("--from-csv", action="append", default=None, metavar="CSV",
+                        help="Prediction CSV from task2.py (e.g. output/task2/predictions/XGBoost.csv). "
+                             "Repeat for multiple models. Globs accepted.")
+    parser.add_argument("--out", default=None, metavar="FILE",
+                        help="Save plot to file (PNG/PDF)")
+    parser.add_argument("--by-zip", action="store_true",
+                        help="Plot per-ZIP time series (historical + predicted 2021)")
+    parser.add_argument("--zips", nargs="+", type=int, default=None,
+                        help="Specific ZIP codes for --by-zip (default: auto-select 4)")
+    args = parser.parse_args()
+
+    if not args.run and not args.from_csv:
+        parser.error("Provide at least one of --run or --from-csv")
+
+    runs_data = []
+
+    # ── load from CSV predictions ────────────────────────────────────
+    if args.from_csv:
+        csv_paths = []
+        for pattern in args.from_csv:
+            expanded = glob.glob(pattern)
+            csv_paths.extend(expanded if expanded else [pattern])
+        runs_data.extend(load_from_csv(csv_paths))
+
+    # ── load from NN runs ────────────────────────────────────────────
+    if args.run:
+        run_dirs = resolve_dirs(args.run)
+        for run_dir in run_dirs:
+            print(f"Loading  {run_dir} ...")
+            try:
+                lit, cfg = load_run(run_dir)
+            except (FileNotFoundError, Exception) as e:
+                print(f"  [skip] {e}"); continue
+
+            task = cfg["data"].get("task", "regression")
+            target = cfg["data"].get("target", "")
+            if task != "regression" or target not in ("earned_premium", ""):
+                print(f"  [skip] not a premium regression run (task={task}, target={target})")
+                continue
+
+            loader, scaler_y = rebuild_test(cfg)
+            if loader is None:
+                continue
+
+            log_target = cfg["data"].get("log_target", False)
+            pred, true = predict(lit, loader, scaler_y, log_target)
+
+            mask = true > 10_000
+            metrics = {
+                "r2": r2_score(true, pred),
+                "rmse": float(np.sqrt(mean_squared_error(true, pred))),
+                "mae": float(mean_absolute_error(true, pred)),
+                "mdape": float(np.median(np.abs((true[mask] - pred[mask]) / true[mask])) * 100),
+            }
+
+            name = cfg["model"]["name"]
+            run_name = run_dir.parent.name
+            if "chained" in run_name:
+                name = f"{name} (chained)"
+            elif "baseline" in run_name:
+                name = f"{name} (baseline)"
+
+            print(f"  {name:<20}  R²={metrics['r2']:.4f}  RMSE=${metrics['rmse']:,.0f}")
+            runs_data.append((name, pred, true, metrics))
+
     if not runs_data:
         print("Nothing to plot."); return
 
-    plot_all(runs_data, args.out)
+    if args.by_zip:
+        plot_by_zip(runs_data, args.out, selected_zips=args.zips)
+    else:
+        plot_timeseries(runs_data, args.out)
 
 
 if __name__ == "__main__":

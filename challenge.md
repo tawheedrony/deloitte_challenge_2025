@@ -18,11 +18,13 @@ is unplanned and uncontrolled. Run your
 algorithm on a quantum computer or
 simulator and provide information on the
 resource requirements of your solution.
+
 Task 1B: Evaluate your solution, describing
 the advantages and disadvantages of your
 approach(es). Evaluate the performance
 differences between your solution and
 classical approaches.
+
 Task 2: Create a time series model to predict
 future insurance premiums in 2021 based on
 historical data (2018-2020) provided in the
@@ -30,3 +32,10 @@ insurance dataset. Wildfire risk for each zip
 code is provided by the model output in Task
 1 or use the existing fire risk score provided
 in the dataset. 
+
+- todos
+-- test cQLSTM/QSSM with 8 qubits for task 1A and expose the timing logs and other benchmarks
+-- you'll be going through the Task 1B, logs and codes to summarize the results 
+-- use output of wildfire predicted risk score to implement Task 2 using these (ARIMA, Prophet, LSTM)
+-- some kind of visualization on the predicted risk score vs actual risk score for task 1A
+-- visualizations on the predicted insurance premium vs actual for task 2

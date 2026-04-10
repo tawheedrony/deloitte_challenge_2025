@@ -1,0 +1,18 @@
+# Trimmed dependency set for the benchmarked TSLib models retained in this submission
+
+einops
+local-attention
+reformer-pytorch
+
+numpy
+scipy
+scikit-learn
+pandas
+matplotlib
+sktime
+sympy
+PyWavelets
+tqdm
+
+torch
+pennylane

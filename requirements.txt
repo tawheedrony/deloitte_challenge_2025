@@ -1,22 +1,16 @@
-# mandatories
+# Submission-scoped dependencies for the retained TSLib benchmark workflow
+
 numpy
 pandas
+scipy
 scikit-learn
 torch
-lightning
 pennylane
-
-# app
-gradio
-
-# others
-rich
-seaborn
+einops
+local-attention
+reformer-pytorch
 matplotlib
-hydra-core
-rootutils
-psutil
-openpyxl
-
-# dev
-tensorboard
+sympy
+PyWavelets
+sktime
+tqdm

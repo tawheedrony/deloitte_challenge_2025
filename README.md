@@ -1,4 +1,4 @@
-# QLSTM Benchmark Workflow
+# Hybrid Quantum Time-Series Forecasting for Wildfire Risk and Insurance Modeling
 
 This repository is the trimmed benchmark package for the wildfire-risk and insurance-premium challenge workflow.
 

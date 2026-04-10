@@ -284,7 +284,7 @@ def _build_full_aggregation(raw_path: Path) -> pd.DataFrame:
     if mask.sum() > 100:
         grouped.loc[mask, "vulnerability_index"] = StandardScaler().fit_transform(grouped.loc[mask, vuln_cols]).mean(axis=1)
 
-    print("Step 5 | derived engineered features")
+    print("Step 5 | derived extended features")
     return grouped.sort_values(["ZIP", "Year"]).reset_index(drop=True)
 
 

@@ -1,0 +1,12 @@
+[
+  {
+    "epoch":1,
+    "train_loss":0.0395717231,
+    "val_loss":null
+  },
+  {
+    "epoch":2,
+    "train_loss":0.0232431165,
+    "val_loss":null
+  }
+]

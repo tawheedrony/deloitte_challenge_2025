@@ -1,0 +1,2 @@
+run_tag,dataset,model,status,reason,dataset_path,output_root
+task2-qcrossformer-deep-chain-full2021,insurance_extended_qcrossformer_deep_task1a_deep_quantum_full2021,MSGNet,skipped,"RuntimeError: Trying to create tensor with negative dimension -10: [32, 1, -10, 1]",/home/tawheed/exp/project_qml/QLSTM/data/preprocessed/task2/insurance_extended_qcrossformer_deep_task1a_deep_quantum_full2021.csv,/home/tawheed/exp/project_qml/QLSTM/output/task2_tslib_benchmarks/runs/task2-qcrossformer-deep-chain-full2021

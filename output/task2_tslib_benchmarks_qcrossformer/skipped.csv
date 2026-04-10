@@ -1,2 +1,0 @@
-dataset,model,status,reason,dataset_path
-insurance_extended_qcrossformer,MSGNet,skipped,"RuntimeError: Trying to create tensor with negative dimension -10: [32, 1, -10, 1]",/home/tawheed/exp/project_qml/QLSTM/data/preprocessed/task2/insurance_extended_qcrossformer.csv

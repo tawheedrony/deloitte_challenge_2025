@@ -8,9 +8,13 @@ TSLib's long-term forecasting model interface:
   - target year:  2021
   - target:       avg_fire_risk_score
 
-It preflights each requested TSLib model on the 3-step annual shape, skips
-models that require unavailable optional dependencies or a longer context, and
-trains/evaluates the compatible ones on each selected dataset.
+By default, the runner now uses a deployment-style workflow:
+  - split ZIP panels into train/validation only for model selection;
+  - choose the best epoch on the validation ZIPs;
+  - refit on all ZIP panels;
+  - emit 2021 predictions for the full ZIP panel.
+
+The legacy ZIP-holdout benchmark can still be enabled explicitly.
 """
 
 from __future__ import annotations
@@ -18,14 +22,17 @@ from __future__ import annotations
 import argparse
 import copy
 import importlib
+import json
 import os
 import random
 import sys
 import traceback
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Iterable
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -35,6 +42,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Dataset, Subset
 
+warnings.filterwarnings("ignore")
 
 ROOT = Path(__file__).resolve().parents[1]
 TSLIB_ROOT = ROOT / "libs" / "Time-Series-Library"
@@ -50,7 +58,7 @@ DEFAULT_DATASETS = {
     "minimal": ROOT / "data" / "preprocessed" / "task1a" / "wildfire_risk_minimal.csv",
     "extended": ROOT / "data" / "preprocessed" / "task1a" / "wildfire_risk_extended.csv",
 }
-OUTPUT_ROOT = ROOT / "output" / "task1a_tslib_benchmarks"
+OUTPUT_ROOT = ROOT / "output" / "task1a_qc_nqb8_nl1"
 
 ZERO_SHOT_MODELS = {
     "Chronos",
@@ -137,13 +145,22 @@ def parse_args() -> argparse.Namespace:
         help="TSLib model names to evaluate. Use 'all' to scan the upstream models directory.",
     )
     parser.add_argument("--target", default=TARGET_COLUMN, help="Prediction target column.")
-    parser.add_argument("--epochs", type=int, default=25, help="Max training epochs per model.")
+    parser.add_argument("--epochs", type=int, default=50, help="Max training epochs per model.")
     parser.add_argument("--batch-size", type=int, default=128, help="Batch size.")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
     parser.add_argument("--weight-decay", type=float, default=0.0, help="Adam weight decay.")
-    parser.add_argument("--patience", type=int, default=5, help="Early stopping patience.")
-    parser.add_argument("--train-split", type=float, default=0.70, help="Train fraction.")
+    parser.add_argument("--patience", type=int, default=10, help="Early stopping patience.")
+    parser.add_argument("--train-split", type=float, default=0.70, help="Train fraction for legacy ZIP-holdout mode.")
     parser.add_argument("--val-split", type=float, default=0.15, help="Validation fraction.")
+    parser.add_argument(
+        "--split-mode",
+        choices=["full_2021", "zip_holdout"],
+        default="full_2021",
+        help=(
+            "full_2021: train/validate on ZIP panels, refit on all ZIPs, and predict the full 2021 panel. "
+            "zip_holdout: keep the legacy 70/15/15 ZIP holdout benchmark."
+        ),
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"], help="Execution device.")
     parser.add_argument("--num-workers", type=int, default=0, help="DataLoader workers.")
@@ -157,8 +174,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-kernels", type=int, default=4, help="Kernel count for TimesNet.")
     parser.add_argument("--pred-len", type=int, default=1, help="Forecast horizon. Task 1A uses 1.")
     parser.add_argument("--history-len", type=int, default=3, help="History length. Task 1A uses 3.")
-    parser.add_argument("--n-qubits", type=int, default=4, help="Qubit count for Q* hybrid models.")
-    parser.add_argument("--n-qlayers", type=int, default=1, help="Variational layers for Q* hybrid models.")
+    parser.add_argument(
+        "--n-qubits",
+        "--nqbits",
+        dest="n_qubits",
+        type=int,
+        default=4,
+        help="Qubit count for Q* hybrid models.",
+    )
+    parser.add_argument(
+        "--n-qlayers",
+        "--n-layers",
+        "--nlayers",
+        dest="n_qlayers",
+        type=int,
+        default=1,
+        help="Variational layers for Q* hybrid models.",
+    )
     parser.add_argument("--n-esteps", type=int, default=1, help="Entangling steps for Q* hybrid models.")
     parser.add_argument(
         "--quantum-backend",
@@ -186,6 +218,11 @@ def parse_args() -> argparse.Namespace:
         help="Directory for metrics, logs, and per-model predictions.",
     )
     parser.add_argument(
+        "--run-tag",
+        default=None,
+        help="Optional experiment tag. Defaults to a timestamped tag derived from the run settings.",
+    )
+    parser.add_argument(
         "--preflight-only",
         action="store_true",
         help="Only test model compatibility; do not train.",
@@ -207,6 +244,13 @@ def resolve_device(device_arg: str) -> torch.device:
     if device_arg == "cuda":
         return torch.device("cuda")
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def sanitize_tag(value: str) -> str:
+    cleaned = "".join(char.lower() if char.isalnum() else "-" for char in value.strip())
+    while "--" in cleaned:
+        cleaned = cleaned.replace("--", "-")
+    return cleaned.strip("-") or "run"
 
 
 def base_model_name(model_name: str) -> str:
@@ -279,7 +323,7 @@ def load_panel_rows(
     return df, feature_columns, dropped_nan_columns, years
 
 
-def split_indices(num_samples: int, train_frac: float, val_frac: float) -> tuple[list[int], list[int], list[int]]:
+def split_indices_zip_holdout(num_samples: int, train_frac: float, val_frac: float) -> tuple[list[int], list[int], list[int]]:
     n_train = int(num_samples * train_frac)
     n_val = int(num_samples * val_frac)
     n_test = num_samples - n_train - n_val
@@ -291,6 +335,18 @@ def split_indices(num_samples: int, train_frac: float, val_frac: float) -> tuple
     val_idx = list(range(n_train, n_train + n_val))
     test_idx = list(range(n_train + n_val, num_samples))
     return train_idx, val_idx, test_idx
+
+
+def split_indices_full_2021(num_samples: int, val_frac: float) -> tuple[list[int], list[int], list[int]]:
+    n_val = int(num_samples * val_frac)
+    if n_val <= 0 or n_val >= num_samples:
+        raise ValueError(
+            f"Invalid full_2021 split for {num_samples} samples: val={n_val}, train={num_samples - n_val}"
+        )
+    train_idx = list(range(0, num_samples - n_val))
+    val_idx = list(range(num_samples - n_val, num_samples))
+    eval_idx = list(range(0, num_samples))
+    return train_idx, val_idx, eval_idx
 
 
 def make_dataset_bundle(
@@ -335,11 +391,17 @@ def make_dataset_bundle(
     x_marks_array = np.repeat(x_marks[np.newaxis, :, :], len(zip_codes), axis=0)
     y_marks_array = np.repeat(y_marks[np.newaxis, :, :], len(zip_codes), axis=0)
 
-    train_idx, val_idx, test_idx = split_indices(
-        num_samples=len(zip_codes),
-        train_frac=args.train_split,
-        val_frac=args.val_split,
-    )
+    if args.split_mode == "zip_holdout":
+        train_idx, val_idx, test_idx = split_indices_zip_holdout(
+            num_samples=len(zip_codes),
+            train_frac=args.train_split,
+            val_frac=args.val_split,
+        )
+    else:
+        train_idx, val_idx, test_idx = split_indices_full_2021(
+            num_samples=len(zip_codes),
+            val_frac=args.val_split,
+        )
 
     scaler = StandardScaler()
     train_flat = np.concatenate(
@@ -380,9 +442,9 @@ def make_dataset_bundle(
     )
 
 
-def make_loader(subset: Subset, args: argparse.Namespace, shuffle: bool) -> DataLoader:
+def make_loader(dataset: Dataset, args: argparse.Namespace, shuffle: bool) -> DataLoader:
     return DataLoader(
-        subset,
+        dataset,
         batch_size=args.batch_size,
         shuffle=shuffle,
         num_workers=args.num_workers,
@@ -392,6 +454,7 @@ def make_loader(subset: Subset, args: argparse.Namespace, shuffle: bool) -> Data
 
 
 def base_model_config(args: argparse.Namespace, feature_dim: int) -> dict:
+    run_output_dir = Path(getattr(args, "run_output_dir", args.output_dir))
     return {
         "task_name": "long_term_forecast",
         "is_training": 1,
@@ -402,7 +465,7 @@ def base_model_config(args: argparse.Namespace, feature_dim: int) -> dict:
         "features": "MS",
         "target": args.target,
         "freq": "h",
-        "checkpoints": str(Path(args.output_dir) / "checkpoints"),
+        "checkpoints": str(run_output_dir / "checkpoints"),
         "seq_len": args.history_len,
         "label_len": args.history_len,
         "pred_len": args.pred_len,
@@ -675,6 +738,42 @@ def fit_model(
     }
 
 
+def refit_model_on_full_dataset(
+    model_name: str,
+    bundle: DatasetBundle,
+    args: argparse.Namespace,
+    device: torch.device,
+    epochs: int,
+) -> tuple[nn.Module, list[dict]]:
+    model_args = build_model_namespace(model_name, args, len(bundle.feature_columns))
+    model = try_build_model(model_name, model_args, device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    criterion = nn.MSELoss()
+    train_loader = make_loader(bundle.full_dataset, args, shuffle=True)
+    history = []
+
+    for epoch in range(1, epochs + 1):
+        model.train()
+        train_losses = []
+        for batch in train_loader:
+            batch_x, batch_y, batch_x_mark, batch_y_mark, dec_inp = prepare_batch(batch, device, args.pred_len)
+            optimizer.zero_grad()
+            preds, trues = forward_model(model, batch_x, batch_y, batch_x_mark, batch_y_mark, dec_inp, args.pred_len)
+            loss = criterion(preds, trues)
+            loss.backward()
+            optimizer.step()
+            train_losses.append(float(loss.item()))
+        history.append(
+            {
+                "epoch": epoch,
+                "train_loss": float(np.mean(train_losses)) if train_losses else float("nan"),
+                "val_loss": float("nan"),
+            }
+        )
+
+    return model, history
+
+
 def inverse_target(values: np.ndarray, mean: float, scale: float) -> np.ndarray:
     return values * scale + mean
 
@@ -738,26 +837,123 @@ def requested_models(model_args: list[str], args: argparse.Namespace, device: to
     return model_args
 
 
-def ensure_output_dirs(output_dir: Path) -> dict[str, Path]:
+def validate_args(args: argparse.Namespace) -> None:
+    if args.history_len <= 0:
+        raise ValueError("--history-len must be positive")
+    if args.pred_len <= 0:
+        raise ValueError("--pred-len must be positive")
+    if args.n_qubits <= 0:
+        raise ValueError("--n-qubits must be positive")
+    if args.n_qlayers <= 0:
+        raise ValueError("--n-qlayers/--n-layers must be positive")
+    if args.n_esteps < 0:
+        raise ValueError("--n-esteps must be non-negative")
+    if not 0.0 < args.train_split < 1.0:
+        raise ValueError("--train-split must be between 0 and 1")
+    if not 0.0 < args.val_split < 1.0:
+        raise ValueError("--val-split must be between 0 and 1")
+    if args.split_mode == "zip_holdout" and args.train_split + args.val_split >= 1.0:
+        raise ValueError("--train-split + --val-split must leave a non-empty test split")
+
+
+def build_run_tag(args: argparse.Namespace, model_names: list[str]) -> str:
+    if args.run_tag:
+        return sanitize_tag(args.run_tag)
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    quantum_requested = any(model_name.startswith("Q") for model_name in model_names)
+    mode = "preflight" if args.preflight_only else "train"
+    parts = [timestamp, mode, f"seed{args.seed}"]
+    if quantum_requested:
+        parts.extend(
+            [
+                f"nq{args.n_qubits}",
+                f"ql{args.n_qlayers}",
+                f"qe{args.n_esteps}",
+            ]
+        )
+        if args.data_reupload:
+            parts.append("reupload")
+    return sanitize_tag("-".join(parts))
+
+
+def ensure_output_dirs(output_dir: Path, run_tag: str) -> dict[str, Path]:
+    run_root = output_dir / "runs" / run_tag
     paths = {
         "root": output_dir,
-        "predictions": output_dir / "predictions",
-        "histories": output_dir / "histories",
+        "runs": output_dir / "runs",
+        "run_root": run_root,
+        "predictions": run_root / "predictions",
+        "histories": run_root / "histories",
     }
     for path in paths.values():
         path.mkdir(parents=True, exist_ok=True)
     return paths
 
 
+def write_run_manifest(
+    output_paths: dict[str, Path],
+    args: argparse.Namespace,
+    dataset_specs: list[tuple[str, Path]],
+    model_names: list[str],
+) -> Path:
+    manifest = {
+        "run_tag": args.run_tag,
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "output_dir": str(output_paths["run_root"]),
+        "datasets": [{"name": name, "path": str(path)} for name, path in dataset_specs],
+        "models": model_names,
+        "settings": {
+            "target": args.target,
+            "epochs": args.epochs,
+            "batch_size": args.batch_size,
+            "lr": args.lr,
+            "weight_decay": args.weight_decay,
+            "patience": args.patience,
+            "split_mode": args.split_mode,
+            "train_split": args.train_split,
+            "val_split": args.val_split,
+            "seed": args.seed,
+            "device": args.device,
+            "runtime_device": str(args.runtime_device),
+            "d_model": args.d_model,
+            "d_ff": args.d_ff,
+            "e_layers": args.e_layers,
+            "d_layers": args.d_layers,
+            "n_heads": args.n_heads,
+            "dropout": args.dropout,
+            "top_k": args.top_k,
+            "num_kernels": args.num_kernels,
+            "pred_len": args.pred_len,
+            "history_len": args.history_len,
+            "n_qubits": args.n_qubits,
+            "n_qlayers": args.n_qlayers,
+            "n_esteps": args.n_esteps,
+            "quantum_backend": args.quantum_backend,
+            "data_reupload": args.data_reupload,
+            "include_quantum": args.include_quantum,
+            "quantum_only": args.quantum_only,
+            "preflight_only": args.preflight_only,
+        },
+    }
+    manifest_path = output_paths["run_root"] / "run_config.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return manifest_path
+
+
 def main() -> None:
     args = parse_args()
-    output_paths = ensure_output_dirs(Path(args.output_dir).resolve())
+    validate_args(args)
     set_seed(args.seed)
     device = resolve_device(args.device)
     args.runtime_device = device
 
     dataset_specs = resolve_dataset_specs(args.datasets)
     model_names = requested_models(args.models, args, device)
+    args.run_tag = build_run_tag(args, model_names)
+    output_paths = ensure_output_dirs(Path(args.output_dir).resolve(), args.run_tag)
+    args.run_output_dir = output_paths["run_root"]
+    manifest_path = write_run_manifest(output_paths, args, dataset_specs, model_names)
 
     results = []
     skips = []
@@ -773,11 +969,13 @@ def main() -> None:
             ok, reason = preflight_model(model_name, bundle, args, device)
             if not ok:
                 record = {
+                    "run_tag": args.run_tag,
                     "dataset": dataset_name,
                     "model": model_name,
                     "status": "skipped",
                     "reason": reason,
                     "dataset_path": str(dataset_path),
+                    "output_root": str(output_paths["run_root"]),
                 }
                 skips.append(record)
                 print(f"[skip] {dataset_name} :: {model_name} :: {reason}")
@@ -785,11 +983,18 @@ def main() -> None:
 
             if args.preflight_only:
                 record = {
+                    "run_tag": args.run_tag,
                     "dataset": dataset_name,
                     "model": model_name,
                     "status": "preflight_ok",
                     "reason": "compatible",
                     "dataset_path": str(dataset_path),
+                    "output_root": str(output_paths["run_root"]),
+                    "n_qubits": args.n_qubits if model_name.startswith("Q") else None,
+                    "n_qlayers": args.n_qlayers if model_name.startswith("Q") else None,
+                    "n_esteps": args.n_esteps if model_name.startswith("Q") else None,
+                    "data_reupload": args.data_reupload if model_name.startswith("Q") else None,
+                    "quantum_backend": args.quantum_backend if model_name.startswith("Q") else None,
                 }
                 results.append(record)
                 print(f"[ok] {dataset_name} :: {model_name} :: preflight only")
@@ -798,19 +1003,32 @@ def main() -> None:
             try:
                 print(f"[train] {dataset_name} :: {model_name}")
                 model, fit_info = fit_model(model_name, bundle, args, device)
+                final_fit_epochs = fit_info["best_epoch"]
+                final_history = fit_info["history"]
+                if args.split_mode == "full_2021" and final_fit_epochs > 0:
+                    model, final_history = refit_model_on_full_dataset(
+                        model_name=model_name,
+                        bundle=bundle,
+                        args=args,
+                        device=device,
+                        epochs=final_fit_epochs,
+                    )
                 metrics, prediction_df = evaluate_model(model, bundle, args, device)
 
                 prediction_path = output_paths["predictions"] / f"{dataset_name}__{model_name}.csv"
                 prediction_df.to_csv(prediction_path, index=False)
 
                 history_path = output_paths["histories"] / f"{dataset_name}__{model_name}.json"
-                pd.DataFrame(fit_info["history"]).to_json(history_path, orient="records", indent=2)
+                pd.DataFrame(final_history).to_json(history_path, orient="records", indent=2)
 
                 record = {
+                    "run_tag": args.run_tag,
                     "dataset": dataset_name,
                     "model": model_name,
                     "status": "ok",
+                    "split_mode": args.split_mode,
                     "dataset_path": str(dataset_path),
+                    "output_root": str(output_paths["run_root"]),
                     "train_samples": len(bundle.train_dataset),
                     "val_samples": len(bundle.val_dataset),
                     "test_samples": len(bundle.test_dataset),
@@ -818,8 +1036,15 @@ def main() -> None:
                     "dropped_nan_columns": ",".join(bundle.dropped_nan_columns),
                     "best_epoch": fit_info["best_epoch"],
                     "epochs_ran": fit_info["epochs_ran"],
+                    "final_fit_epochs": final_fit_epochs,
                     "best_val_loss": fit_info["best_val_loss"],
                     "prediction_path": str(prediction_path),
+                    "history_path": str(history_path),
+                    "n_qubits": args.n_qubits if model_name.startswith("Q") else None,
+                    "n_qlayers": args.n_qlayers if model_name.startswith("Q") else None,
+                    "n_esteps": args.n_esteps if model_name.startswith("Q") else None,
+                    "data_reupload": args.data_reupload if model_name.startswith("Q") else None,
+                    "quantum_backend": args.quantum_backend if model_name.startswith("Q") else None,
                     **metrics,
                 }
                 results.append(record)
@@ -830,24 +1055,41 @@ def main() -> None:
             except Exception as exc:
                 error_text = "".join(traceback.format_exception_only(type(exc), exc)).strip()
                 record = {
+                    "run_tag": args.run_tag,
                     "dataset": dataset_name,
                     "model": model_name,
                     "status": "failed",
                     "reason": error_text,
                     "dataset_path": str(dataset_path),
+                    "output_root": str(output_paths["run_root"]),
+                    "n_qubits": args.n_qubits if model_name.startswith("Q") else None,
+                    "n_qlayers": args.n_qlayers if model_name.startswith("Q") else None,
+                    "n_esteps": args.n_esteps if model_name.startswith("Q") else None,
+                    "data_reupload": args.data_reupload if model_name.startswith("Q") else None,
+                    "quantum_backend": args.quantum_backend if model_name.startswith("Q") else None,
                 }
                 results.append(record)
                 print(f"[fail] {dataset_name} :: {model_name} :: {error_text}")
 
     results_df = pd.DataFrame(results)
     skips_df = pd.DataFrame(skips)
-    results_path = output_paths["root"] / "results.csv"
-    skips_path = output_paths["root"] / "skipped.csv"
+    results_path = output_paths["run_root"] / "results.csv"
+    skips_path = output_paths["run_root"] / "skipped.csv"
     results_df.to_csv(results_path, index=False)
     skips_df.to_csv(skips_path, index=False)
+    latest_results_path = output_paths["root"] / "results.csv"
+    latest_skips_path = output_paths["root"] / "skipped.csv"
+    results_df.to_csv(latest_results_path, index=False)
+    skips_df.to_csv(latest_skips_path, index=False)
+    latest_run_path = output_paths["root"] / "latest_run.txt"
+    latest_run_path.write_text(f"{args.run_tag}\n", encoding="utf-8")
 
     print(f"[write] results  -> {results_path}")
     print(f"[write] skipped  -> {skips_path}")
+    print(f"[write] latest results -> {latest_results_path}")
+    print(f"[write] latest skipped -> {latest_skips_path}")
+    print(f"[write] manifest -> {manifest_path}")
+    print(f"[write] latest run tag -> {latest_run_path}")
 
 
 if __name__ == "__main__":

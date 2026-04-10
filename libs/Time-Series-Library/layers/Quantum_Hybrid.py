@@ -15,6 +15,13 @@ class QuantumResidualBlock(nn.Module):
         backend="default.qubit",
     ):
         super().__init__()
+        if n_qubits <= 0:
+            raise ValueError("n_qubits must be positive")
+        if n_qlayers <= 0:
+            raise ValueError("n_qlayers must be positive")
+        if n_esteps < 0:
+            raise ValueError("n_esteps must be non-negative")
+
         self.n_qubits = n_qubits
         self.n_qlayers = n_qlayers
         self.n_esteps = n_esteps
@@ -51,9 +58,10 @@ class QuantumResidualBlock(nn.Module):
         self.vqc = qml.qnn.TorchLayer(circuit, {"weights": (n_qlayers, 3, n_qubits)})
 
     def _ansatz(self, params, wires):
-        for k in range(self.n_esteps):
-            for i in range(self.n_qubits):
-                qml.CNOT(wires=[wires[i], wires[(i + k + 1) % self.n_qubits]])
+        if self.n_qubits > 1 and self.n_esteps > 0:
+            for k in range(self.n_esteps):
+                for i in range(self.n_qubits):
+                    qml.CNOT(wires=[wires[i], wires[(i + k + 1) % self.n_qubits]])
         for i in range(self.n_qubits):
             qml.RX(params[0][i], wires=wires[i])
             qml.RY(params[1][i], wires=wires[i])
